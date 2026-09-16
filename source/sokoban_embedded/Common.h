@@ -21,12 +21,13 @@ extern int16_t SelectedLevel;
 extern int8_t SelectedLevelPack;
 extern CWorldParts* WorldParts;
 extern CLevelPackFile *LevelPackFile;
-extern char LevelPackName[MaxLevelPackNameLength];
-extern char InstalledLevelPacks[MaxLevelPacks][MaxLevelPackNameLength];
+//allocated in Game_Setup, only when the game itself runs
+extern char* LevelPackName;
+//MaxLevelPacks names of MaxLevelPackNameLength each, indexed as before
+extern char (*InstalledLevelPacks)[MaxLevelPackNameLength];
 extern int8_t AskingQuestionID;
 extern bool AskingQuestion;
 extern const uint8_t* IMGBackground, *IMGBox, *IMGFloor, *IMGPlayer, *IMGSpot, *IMGTitleScreen, *IMGWall;
-extern char NormalCreateName[MaxLevelPackNameLength];
 extern uint8_t currButtons, prevButtons;
 //frame counters that never stop, the menus only use differences of them
 extern uint32_t framecount, frameUpStart, frameDownStart, frameLeftStart, frameRightStart;

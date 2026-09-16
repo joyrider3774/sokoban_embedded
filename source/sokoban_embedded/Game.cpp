@@ -49,8 +49,6 @@ void ShowGameInfo()
 		{
 			snprintf(Msg, 200, "Level Pack: %s\nLevel: %d/%d - Moves: %" PRIu32 " - Pushes: %" PRId32 "\nAuthor: %s\nComments: %s", LevelPackName, SelectedLevel, InstalledLevels, WorldParts->Moves, WorldParts->Pushes, LevelPackFile->Meta.author, LevelPackFile->Meta.comments);
 		}
-		else
-			snprintf(Msg, 200, "Level Pack: %s\nLevel: %d/%d - Moves: %" PRIu32 " - Pushes: %" PRId32 "\nAuthor: %s", LevelPackName, SelectedLevel, InstalledLevels, WorldParts->Moves, WorldParts->Pushes, NormalCreateName);
 		AskQuestion(IDLevelInfo, Msg);
 	}
 }

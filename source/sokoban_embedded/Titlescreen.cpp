@@ -14,7 +14,6 @@ void TitleScreenInit()
 	ScreenForceRedraw();
 	Selection = 1;
 	CLevelPackFile_loadFile(LevelPackFile, LevelPackName, NrOfCols, NrOfRows, LPLevelHeaderOnly);
-	LoadNormalCreatorName();
 }
 
 
@@ -27,9 +26,8 @@ static void SelectLevelPack(int8_t Delta)
 		SelectedLevelPack = InstalledLevelPacksCount - 1;
 	if (SelectedLevelPack > InstalledLevelPacksCount - 1)
 		SelectedLevelPack = 0;
-	snprintf(LevelPackName, sizeof(LevelPackName), "%.*s", MaxLevelPackNameLength - 1, InstalledLevelPacks[SelectedLevelPack]);
+	snprintf(LevelPackName, MaxLevelPackNameLength, "%.*s", MaxLevelPackNameLength - 1, InstalledLevelPacks[SelectedLevelPack]);
 	CLevelPackFile_loadFile(LevelPackFile, LevelPackName, NrOfCols, NrOfRows, LPLevelHeaderOnly);
-	LoadNormalCreatorName();
 	playMenuSound();
 	SaveSettings();
 }
@@ -120,7 +118,6 @@ void TitleScreen()
 					if (InstalledLevelPacksCount > 0)
 					{
 						CLevelPackFile_loadFile(LevelPackFile, LevelPackName, NrOfCols, NrOfRows, LPLevelCountOnly);
-						LoadNormalCreatorName();
 						FindLevels();
 						if (InstalledLevels > 0)
 						{

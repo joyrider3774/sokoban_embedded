@@ -5,13 +5,13 @@
 #include "GameFuncs.h"
 #include "Sound.h"
 
-char CreditsTekst[100];
-	
+//the text never changes, so it is drawn straight from the literal instead of a copy in RAM
+static const char* const CreditsTekst = "Creator:\nWillems Davy\nWillems Soft 2026\njoyrider3774.itch.io";
+
 void CreditsInit()
 {
 	//this screen is about to be rebuilt, drop any cached draw signature
 	ScreenForceRedraw();
-	sprintf(CreditsTekst, "Creator:\nWillems Davy\nWillems Soft 2026\njoyrider3774.itch.io");
 }
 
 void Credits()

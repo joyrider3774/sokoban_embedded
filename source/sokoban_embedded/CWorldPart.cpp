@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <inttypes.h>
 #include "CWorldParts.h"
 #include "CWorldPart.h"
 #include "CHistory.h"
@@ -8,14 +10,26 @@
 #include "GameFuncs.h"
 //parts come out of one fixed pool instead of malloc, that saves the 8 bytes of heap
 //overhead every single part would otherwise cost and it can't fragment the heap.
-//a free slot is marked by Type 0, no part ever has that id
-static CWorldPart WorldPartPool[MAXWORLDPARTS];
+//a free slot is marked by Type 0, no part ever has that id.
+//The pool itself is one calloc made when the first part is created, so nothing is
+//taken until a level is actually loaded. calloc zeroes it, which marks every slot free
+static CWorldPart* WorldPartPool = NULL;
 //pool indexes are uint16_t, the search below adds two of them
 static_assert(MAXWORLDPARTS * 2 <= 65535, "pool indexes do not fit in uint16_t");
 static uint16_t WorldPartPoolNext = 0;
 
 static CWorldPart* CWorldPart_PoolAlloc()
 {
+	if (!WorldPartPool)
+	{
+		WorldPartPool = (CWorldPart*)calloc(MAXWORLDPARTS, sizeof(CWorldPart));
+		if (!WorldPartPool)
+		{
+			Platform_Log("CWorldPart_PoolAlloc: out of heap for the part pool, %" PRIu32 " free\n", Platform_FreeHeap());
+			return NULL;
+		}
+		WorldPartPoolNext = 0;
+	}
 	for (uint16_t Teller = 0; Teller < MAXWORLDPARTS; Teller++)
 	{
 		//start looking where the last one was taken, allocating a whole level

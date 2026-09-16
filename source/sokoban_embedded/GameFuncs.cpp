@@ -345,13 +345,6 @@ void LoadGraphics(void)
 }
 
 
-void LoadNormalCreatorName()
-{
-
-}
-
-
-
 // ===========================================================================
 // Saved data, kept in the platform's save storage
 //
@@ -760,7 +753,7 @@ void LoadSettings()
 			SelectedLevelPack = Teller;
 			//every name is stored terminated within MaxLevelPackNameLength, the precision
 			//only tells the compiler it can not run on into the next name
-			snprintf(LevelPackName, sizeof(LevelPackName), "%.*s", MaxLevelPackNameLength - 1, InstalledLevelPacks[SelectedLevelPack]);
+			snprintf(LevelPackName, MaxLevelPackNameLength, "%.*s", MaxLevelPackNameLength - 1, InstalledLevelPacks[SelectedLevelPack]);
 			break;
 		}
 }
@@ -811,7 +804,7 @@ void SearchForLevelPacks()
 
 	if (InstalledLevelPacksCount > 0)
 	{
-		snprintf(LevelPackName, sizeof(LevelPackName), "%s", InstalledLevelPacks[SelectedLevelPack]);
+		snprintf(LevelPackName, MaxLevelPackNameLength, "%s", InstalledLevelPacks[SelectedLevelPack]);
 	}
 }
 

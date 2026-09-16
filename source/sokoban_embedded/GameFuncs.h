@@ -30,7 +30,5 @@ bool AskQuestionUpdate(int8_t* Id, bool* Answer, bool MustBeAButton);
 void SearchForLevelPacks();
 void SaveSettings();
 void LoadSettings();
-void LoadNormalCreatorName();
-
 
 #endif

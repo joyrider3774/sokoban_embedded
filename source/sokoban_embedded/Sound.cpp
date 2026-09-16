@@ -6,17 +6,20 @@
 
 uint8_t music_note, music_tempo, music_loop, music_on, sound_on;
 uint8_t selecting_music;
-uint16_t musicArray[255];
+//points at the selected tune itself, the tunes are const so there is no need to copy them into RAM
+static const uint16_t* musicArray = NULL;
 //number of values in the selected tune, music_note steps through it 2 at a time
 uint8_t music_length;
-//number of values in musicArray, kept in the uint8_t music_length
-static_assert(sizeof(musicArray) / sizeof(musicArray[0]) <= 255, "music_length does not fit in uint8_t");
 
 const float sfxSustain = (100.0f * 30.0f / 18.0f);
-const float musModifier = (60.0f / 30.0f);
+//constexpr guarantees the tunes below are worked out from it at compile time. A plain
+//const float is not a constant expression in C++, a compiler may then fill them in at
+//startup, which data kept in flash can not be
+constexpr float musModifier = (60.0f / 30.0f);
 
+//the tunes are kept in flash, read them through PLATFORM_READ_WORD
 // Winner
-const uint16_t music_winner[] = {
+const uint16_t music_winner[] PLATFORM_PROGMEM = {
     523,  (uint16_t)(100.0f / musModifier),
     659,  (uint16_t)(100.0f / musModifier),
     783,  (uint16_t)(100.0f / musModifier),
@@ -26,7 +29,7 @@ const uint16_t music_winner[] = {
 };
 
 //clear
-const uint16_t music_clear[] = {
+const uint16_t music_clear[] PLATFORM_PROGMEM = {
     523,  (uint16_t)(100.0f / musModifier),  // C5
     659,  (uint16_t)(100.0f / musModifier),  // E5
     784,  (uint16_t)(100.0f / musModifier),  // G5
@@ -35,10 +38,10 @@ const uint16_t music_clear[] = {
     0, 0
 };
 
-//a tune is copied into musicArray (255 values) and its length kept in the uint8_t music_length,
-//at most 254 values keeps music_note (stepping 2 at a time past the end) from wrapping
+//a tune's length is kept in the uint8_t music_length, at most 254 values keeps
+//music_note (stepping 2 at a time past the end) from wrapping
 #define TUNELEN(t) (sizeof(t) / sizeof(uint16_t))
-static_assert((TUNELEN(music_winner) <= 254) && (TUNELEN(music_clear) <= 254), "a tune does not fit in musicArray");
+static_assert((TUNELEN(music_winner) <= 254) && (TUNELEN(music_clear) <= 254), "a tune does not fit in music_length");
 
 void stopMusic(void)
 {
@@ -84,19 +87,21 @@ uint8_t isMusicPlaying()
 void SelectMusic(uint8_t musicFile, uint8_t loop)
 {
     selecting_music = 1;
-    memset(musicArray, 0, sizeof(musicArray));
-    switch (musicFile) 
-    {			
+    switch (musicFile)
+    {
         case musWinner:
-            memcpy(musicArray, music_winner, sizeof(music_winner));
-            music_length = sizeof(music_winner) / sizeof(uint16_t);
+            musicArray = music_winner;
+            music_length = TUNELEN(music_winner);
             break;
         case musClear:
-            memcpy(musicArray, music_clear, sizeof(music_clear));
-            music_length = sizeof(music_clear) / sizeof(uint16_t);
+            musicArray = music_clear;
+            music_length = TUNELEN(music_clear);
             break;
 
         default:
+            //an unknown tune plays nothing
+            musicArray = NULL;
+            music_length = 0;
             break;
     }
     music_note = 0;
@@ -109,12 +114,12 @@ void playNote()
 {    
     if(music_note < music_length)
     {
-        Platform_PlayTone(musicArray[music_note], 0);
+        Platform_PlayTone(PLATFORM_READ_WORD(&musicArray[music_note]), 0);
 
         //Set the new delay to wait
         //the note length is in ms, the tempo counts frames. Written as 60/FPS it divided by
         //zero once the frame rate went above 60
-        uint32_t frames = (uint32_t)musicArray[music_note + 1] * FPS / 1000;
+        uint32_t frames = (uint32_t)PLATFORM_READ_WORD(&musicArray[music_note + 1]) * FPS / 1000;
         music_tempo = (frames > 255) ? 255 : (uint8_t)frames;
 
         //Skip to the next note
