@@ -1,0 +1,6 @@
+name=Sokoban
+author=Willems Davy aka Joyrider3774
+description=Push the boxes onto their spots puzzle game
+bundleID=com.joyrider3774.sokoban.embedded
+version=1.0
+buildNumber=1
