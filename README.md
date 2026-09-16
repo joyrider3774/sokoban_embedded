@@ -99,9 +99,6 @@ Level packs are built into the game. To add one, put its .sok file in `assets/le
 ## Credits
 Game is an adaptation from the gp2x version i (willems davy, aka joyrider3774) initially made many years ago
 
-### Fonts
-- Roboto-Black by google
-
 ### Graphics
 - wall (adapted): [1001.com](https://opengameart.org/content/sokoban-pack) - [Attribution-ShareAlike 3.0 Unported](https://creativecommons.org/licenses/by-sa/3.0/)
 - floor (adapted): [Kenney Sokoban tiles](https://opengameart.org/content/sokoban-100-tiles) - [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
