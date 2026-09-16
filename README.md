@@ -67,12 +67,6 @@ On the PlayStation Vita the game is blown up four times to 512x512 in the middle
 
 On the Gamebuino META holding HOME for a second goes back to its loader.
 
-## Screenshots
-![screenshot 1](screenshots/screenshot1.png)
-![screenshot 2](screenshots/screenshot2.png)
-![screenshot 3](screenshots/screenshot3.png)
-![screenshot 4](screenshots/screenshot4.png)
-
 ## Game Features:
 - 19 level packs with about 2000 levels
 - Max 25x16 level size, levels that are too big are left out
@@ -104,9 +98,6 @@ Level packs are built into the game. To add one, put its .sok file in `assets/le
 
 ## Credits
 Game is an adaptation from the gp2x version i (willems davy, aka joyrider3774) initially made many years ago
-
-### Fonts
-- Roboto-Black by google
 
 ### Graphics
 - wall (adapted): [1001.com](https://opengameart.org/content/sokoban-pack) - [Attribution-ShareAlike 3.0 Unported](https://creativecommons.org/licenses/by-sa/3.0/)
