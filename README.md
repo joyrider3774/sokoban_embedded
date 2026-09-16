@@ -67,12 +67,6 @@ On the PlayStation Vita the game is blown up four times to 512x512 in the middle
 
 On the Gamebuino META holding HOME for a second goes back to its loader.
 
-## Screenshots
-![screenshot 1](screenshots/screenshot1.png)
-![screenshot 2](screenshots/screenshot2.png)
-![screenshot 3](screenshots/screenshot3.png)
-![screenshot 4](screenshots/screenshot4.png)
-
 ## Game Features:
 - 19 level packs with about 2000 levels
 - Max 25x16 level size, levels that are too big are left out
