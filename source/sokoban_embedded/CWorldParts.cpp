@@ -8,6 +8,12 @@
 #include "Common.h"
 #include "GameFuncs.h"
 
+#if FLOODFILLFLOOR
+//the floodfill buffers come and go with the parts list, defined with the floodfill below
+static void FloodCreate();
+static void FloodDestroy();
+#endif
+
 CWorldParts* CWorldParts_Create()
 {
 	CWorldParts* Result = (CWorldParts*) malloc(sizeof(CWorldParts));
@@ -18,6 +24,9 @@ CWorldParts* CWorldParts_Create()
 		Result->DisableSorting = false;
 		Result->Player = NULL;
 		Result->ViewPort = CViewPort_Create(0, 0, NrOfColsVisible, NrOfRowsVisible, 0, 0, NrOfCols - 1, NrOfRows - 1);
+#if FLOODFILLFLOOR
+		FloodCreate();
+#endif
 	}
 	return Result;
 }
@@ -277,6 +286,23 @@ bool CWorldParts_CenterLevel(CWorldParts* WorldParts)
 	return false;
 }
 
+#if SCREENBUFFER == 0
+//A part whose sprite holds no transparent pixel covers its whole tile: it is painted
+//without looking at the transparent key and the background under it is left undecoded.
+//Whether that holds is a property of the skin, LoadGraphics works it out per image
+static inline bool PartOpaque(uint8_t Type)
+{
+	switch (Type)
+	{
+		case IDBox:    return IMGBoxOpaque;
+		case IDWall:   return IMGWallOpaque;
+		case IDSpot:   return IMGSpotOpaque;
+		case IDFloor:  return IMGFloorOpaque;
+		default:       return false;
+	}
+}
+#endif
+
 #if FLOODFILLFLOOR
 //One bit per playfield tile instead of one byte, these are only ever flags.
 #define TILEBITS ((NrOfRows * NrOfCols + 7) / 8)
@@ -286,67 +312,56 @@ static_assert(NrOfRows * NrOfCols <= 65535, "tile indexes do not fit in uint16_t
 static inline bool BitGet(const uint8_t* bits, uint16_t i) { return (bits[i >> 3] >> (i & 7)) & 1; }
 static inline void BitSet(uint8_t* bits, uint16_t i) { bits[i >> 3] |= (uint8_t)1 << (i & 7); }
 
-//The buffers below all live in one calloc, made the first time the floor is worked out,
-//so nothing is taken until a level is drawn. It is kept from then on: this runs every
-//frame and allocating and freeing that often would only churn the heap. calloc zeroes
-//it, the same start the static arrays these replace had
+//everything the floodfill works with, kept in one block so it is a single allocation
+typedef struct FloodBuffers FloodBuffers;
+struct FloodBuffers
+{
+	uint8_t visited[TILEBITS];
+	//playfield tiles that hold a wall, filled once before the floodfill so it does not have
+	//to look through every part of the level for every tile it visits
+	uint8_t wallHere[TILEBITS];
+	//playfield tiles the floodfill decided are floor, this is what gets painted
+	uint8_t floorHere[TILEBITS];
 #if SCREENBUFFER == 0
-#define FLOODBITSETS 4
-#else
-#define FLOODBITSETS 3
+	uint8_t floorPrev[TILEBITS];
+	//playfield tiles an opaque sprite covers completely: the floor above, plus the walls,
+	//the spots and the boxes that sit still on their tile. The background under them is
+	//never seen, so it is not decoded (see BandFindCovered)
+	uint8_t coverHere[TILEBITS];
 #endif
-static uint8_t* visited = NULL;
-//playfield tiles that hold a wall, filled once before the floodfill so it does not have
-//to look through every part of the level for every tile it visits
-static uint8_t* wallHere = NULL;
-//playfield tiles the floodfill decided are floor, this is what gets painted.
-//NULL until the buffers were allocated, the drawing code checks it before reading
-static uint8_t* floorHere = NULL;
-#if SCREENBUFFER == 0
-static uint8_t* floorPrev = NULL;
-#endif
-//tiles still to handle, held as Y * NrOfCols + X. A tile is marked visited when it
-//is pushed, so it can enter this list only once and the list can never hold more
-//tiles than the playfield has
-static uint16_t* floodStack = NULL;
+	//tiles still to handle, held as Y * NrOfCols + X. A tile is marked visited when it
+	//is pushed, so it can enter this list only once and the list can never hold more
+	//tiles than the playfield has
+	uint16_t floodStack[NrOfRows * NrOfCols];
+};
+//taken from the heap by CWorldParts_Create and handed back by CWorldParts_Destroy.
+//NULL outside of that, or when the allocation failed
+static FloodBuffers* Flood = NULL;
 static uint16_t floodStackCount = 0;
 
-static bool FloodBuffersReady()
+static void FloodCreate()
 {
-	if (floorHere)
-		return true;
-	//the stack goes first, at the start of the block it is aligned for uint16_t
-	//whatever size the bit sets have
-	const size_t stackBytes = (size_t)NrOfRows * NrOfCols * sizeof(uint16_t);
-	uint8_t* block = (uint8_t*)calloc(1, stackBytes + FLOODBITSETS * TILEBITS);
-	if (!block)
-	{
-		//tried again every frame, only said once
-		static bool logged = false;
-		if (!logged)
-		{
-			logged = true;
-			Platform_Log("FloodBuffersReady: out of heap for the floodfill, %" PRIu32 " free\n", Platform_FreeHeap());
-		}
-		return false;
-	}
-	floodStack = (uint16_t*)block;
-	visited = block + stackBytes;
-	wallHere = visited + TILEBITS;
-	floorHere = wallHere + TILEBITS;
-#if SCREENBUFFER == 0
-	floorPrev = floorHere + TILEBITS;
-#endif
-	return true;
+	if (Flood)
+		return;
+	//calloc zeroes floorPrev, as the old static array started out
+	Flood = (FloodBuffers*)calloc(1, sizeof(FloodBuffers));
+	if (!Flood)
+		Platform_Log("FloodCreate: out of heap, %" PRIu32 " free\n", Platform_FreeHeap());
+}
+
+static void FloodDestroy()
+{
+	free(Flood);
+	Flood = NULL;
 }
 
 //called for the neighbours of a tile, so X / Y can be -1
 static void FloodPush(int8_t X, int8_t Y)
 {
-	if (X < 0 || X >= NrOfCols || Y < 0 || Y >= NrOfRows || BitGet(visited, TILEBIT(X, Y)))
+	if (X < 0 || X >= NrOfCols || Y < 0 || Y >= NrOfRows || BitGet(Flood->visited, TILEBIT(X, Y)))
 		return;
-	BitSet(visited, TILEBIT(X, Y));
-	floodStack[floodStackCount++] = (uint16_t)(Y * NrOfCols + X);
+	BitSet(Flood->visited, TILEBIT(X, Y));
+	Flood->floodStack[floodStackCount++] = (uint16_t)(Y * NrOfCols + X);
 }
 
 // Floodfill, iterative. Recursing here used one call frame per open tile, which
@@ -358,7 +373,7 @@ void FloodFill(CWorldParts* aWorldParts, int8_t X, int8_t Y)
 
 	while (floodStackCount > 0)
 	{
-		uint16_t Tile = floodStack[--floodStackCount];
+		uint16_t Tile = Flood->floodStack[--floodStackCount];
 		uint8_t TileX = Tile % NrOfCols;
 		uint8_t TileY = Tile / NrOfCols;
 
@@ -370,13 +385,13 @@ void FloodFill(CWorldParts* aWorldParts, int8_t X, int8_t Y)
 		}
 
 		//a wall blocks the fill
-		if (BitGet(wallHere, TILEBIT(TileX, TileY)))
+		if (BitGet(Flood->wallHere, TILEBIT(TileX, TileY)))
 		{
 			continue;
 		}
 
 		// Remember that this tile shows floor, the compositor paints it
-		BitSet(floorHere, TILEBIT(TileX, TileY));
+		BitSet(Flood->floorHere, TILEBIT(TileX, TileY));
 
 		// Spread to the neighbouring tiles
 		FloodPush(TileX + 1, TileY);
@@ -386,26 +401,54 @@ void FloodFill(CWorldParts* aWorldParts, int8_t X, int8_t Y)
 	}
 }
 
-void  CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player)
+//false when there are no floodfill buffers, Flood->floorHere can not be read then
+bool CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player)
 {
+	// This runs every frame, the buffers were allocated once by CWorldParts_Create
+	if (!Flood)
+		return false;
 	if (!Player)
-		return;
-	//without its buffers there is no floor, floorHere stays NULL and nothing reads it
-	if (!FloodBuffersReady())
-		return;
-	memset(visited, 0, TILEBITS);
-	memset(floorHere, 0, TILEBITS);
+	{
+#if SCREENBUFFER == 0
+		//floorHere keeps what it held, but nothing here says where the sprites are now,
+		//so the background is decoded everywhere this frame
+		memset(Flood->coverHere, 0, TILEBITS);
+#endif
+		return true;
+	}
+	memset(Flood->visited, 0, TILEBITS);
+	memset(Flood->floorHere, 0, TILEBITS);
 	//the same parts CWorldParts_ItemExists(..., IDWall) finds, in one pass over the level
-	memset(wallHere, 0, TILEBITS);
+	memset(Flood->wallHere, 0, TILEBITS);
 	for (uint16_t Teller = 0; Teller < WorldParts->ItemCount; Teller++)
 	{
 		CWorldPart* Part = WorldParts->Items[Teller];
 		if ((Part->Type == IDWall) && (Part->PlayFieldX >= 0) && (Part->PlayFieldX < NrOfCols) &&
 			(Part->PlayFieldY >= 0) && (Part->PlayFieldY < NrOfRows))
-			BitSet(wallHere, TILEBIT(Part->PlayFieldX, Part->PlayFieldY));
+			BitSet(Flood->wallHere, TILEBIT(Part->PlayFieldX, Part->PlayFieldY));
 	}
 	if(Player)
 		FloodFill(WorldParts, Player->PlayFieldX, Player->PlayFieldY);
+
+#if SCREENBUFFER == 0
+	//a floor tile hides the background, as long as this skin's floor covers its tile
+	if (IMGFloorOpaque)
+		memcpy(Flood->coverHere, Flood->floorHere, TILEBITS);
+	else
+		memset(Flood->coverHere, 0, TILEBITS);
+	for (uint16_t Teller = 0; Teller < WorldParts->ItemCount; Teller++)
+	{
+		CWorldPart* Part = WorldParts->Items[Teller];
+		//a part only hides a whole tile while it sits on one: a moving one is between two
+		if (!PartOpaque(Part->Type) ||
+			(Part->X != Part->PlayFieldX * TileWidth) || (Part->Y != Part->PlayFieldY * TileHeight))
+			continue;
+		if ((Part->PlayFieldX >= 0) && (Part->PlayFieldX < NrOfCols) &&
+			(Part->PlayFieldY >= 0) && (Part->PlayFieldY < NrOfRows))
+			BitSet(Flood->coverHere, TILEBIT(Part->PlayFieldX, Part->PlayFieldY));
+	}
+#endif
+	return true;
 }
 #endif
 
@@ -492,10 +535,10 @@ static_assert(CELLSX <= 64, "cellDirty keeps one bit per cell of a row in at mos
 
 static CellRow cellDirty[CELLSY];
 #if SCREENBUFFER == 0
-//Half of a cell row at a time. The display window is still opened once per row,
-//the two halves just go through it back to back, so this costs a second
-//pushPixels rather than a second window setup.
-#define BANDHEIGHT (TileHeight / 2)
+//A whole cell row at a time. Half rows cost twice the work for every sprite: a part is
+//TileHeight tall, so it lands in both halves and its pixels are walked for each of them.
+//A full row is one window, one push and every part handled once
+#define BANDHEIGHT (TileHeight)
 static uint16_t bandBuf[WINDOW_WIDTH * BANDHEIGHT]; //the strip being composed
 static int16_t bandX0, bandY0, bandW;               //where that strip sits on screen
 static int16_t lastMinScreenX = -30000, lastMinScreenY = -30000;
@@ -518,6 +561,60 @@ static const uint8_t* bgIndexed = NULL;
 static inline uint16_t ReadPixel(const uint8_t* p)
 {
 	return PLATFORM_READ_BYTE(p) | (PLATFORM_READ_BYTE(p + 1) << 8);
+}
+
+//count pixels of an image into the strip. Runs here are a few pixels at a time, a sprite
+//row is 8 of them: where flash is plain memory that is a short copy of 16 bit values, and
+//calling memcpy for it costs more than the copy itself
+static inline void BandCopy(uint16_t* dst, const uint8_t* src, int16_t count)
+{
+#if PLATFORM_DIRECT_FLASH
+	//A 16 bit read needs an even address: a core like the Cortex-M0+ faults on an odd one.
+	//The pixels of an encoded row sit wherever the control bytes leave them, so half of the
+	//time they are odd and the two bytes are put together by hand
+	if (((uintptr_t)src & 1) == 0)
+	{
+		const uint16_t* s = (const uint16_t*)src;
+		for (int16_t i = 0; i < count; i++)
+			dst[i] = s[i];
+	}
+	else
+	{
+		for (int16_t i = 0; i < count; i++, src += 2)
+			dst[i] = (uint16_t)(src[0] | (src[1] << 8));
+	}
+#else
+	PLATFORM_READ_BYTES((uint8_t*)dst, src, count * sizeof(uint16_t));
+#endif
+}
+
+//the same, but leaving the pixels of the image that carry the transparent key
+static inline void BandCopyKeyed(uint16_t* dst, const uint8_t* src, int16_t count)
+{
+#if PLATFORM_DIRECT_FLASH
+	if (((uintptr_t)src & 1) == 0)
+	{
+		const uint16_t* s = (const uint16_t*)src;
+		for (int16_t i = 0; i < count; i++)
+			//magenta is the transparent key, 0xF81F in RGB565
+			if (s[i] != 0xF81F)
+				dst[i] = s[i];
+		return;
+	}
+	for (int16_t i = 0; i < count; i++, src += 2)
+	{
+		const uint16_t col = (uint16_t)(src[0] | (src[1] << 8));
+		if (col != 0xF81F)
+			dst[i] = col;
+	}
+#else
+	//reading this a pixel at a time would be a flash read each, the row is copied first
+	uint16_t row[TileWidth];
+	PLATFORM_READ_BYTES((uint8_t*)row, src, count * sizeof(uint16_t));
+	for (int16_t i = 0; i < count; i++)
+		if (row[i] != 0xF81F)
+			dst[i] = row[i];
+#endif
 }
 #endif
 
@@ -558,11 +655,10 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 	//the floodfill only records which tiles are floor, stamp them here
 	const int16_t msx = WorldParts->ViewPort->MinScreenX;
 	const int16_t msy = WorldParts->ViewPort->MinScreenY;
-	CWorldParts_DrawFloor(WorldParts, WorldParts->Player);
-	if (floorHere)
+	if (CWorldParts_DrawFloor(WorldParts, WorldParts->Player))
 		for (int16_t ty = 0; ty < NrOfRows; ty++)
 			for (int16_t tx = 0; tx < NrOfCols; tx++)
-				if (BitGet(floorHere, TILEBIT(tx, ty)))
+				if (BitGet(Flood->floorHere, TILEBIT(tx, ty)))
 					DrawImage(tx * TileWidth - msx, ty * TileHeight - msy, TileWidth, TileHeight, IMGFloor);
 #endif
 
@@ -602,6 +698,79 @@ static void IndexBackground()
 	bgIndexed = IMGBackground;
 }
 
+//Screen columns of the strip that an opaque sprite will cover completely, per row of the
+//strip. Those pixels are painted over the background, so they are left out of it below.
+//covX1 <= covX0 means nothing is covered
+static int16_t covX0[BANDHEIGHT], covX1[BANDHEIGHT];
+
+static void BandClearCovered()
+{
+	for (int16_t r = 0; r < BANDHEIGHT; r++)
+		covX0[r] = covX1[r] = 0;
+}
+
+#if FLOODFILLFLOOR
+//the longest unbroken run of covered tiles across the strip, worked out per row because a
+//row of tiles only lines up with the strip while the viewport is not scrolled between two
+//tile rows. Only a run is looked for: the floor of a level is one area, and this has to
+//stay cheap next to the pixels it saves
+static void BandFindCovered(int16_t msx, int16_t msy)
+{
+	BandClearCovered();
+	if (!Flood)
+		return;
+	const int16_t tx0 = (bandX0 + msx) / TileWidth;
+	const int16_t tx1 = (bandX0 + bandW - 1 + msx) / TileWidth;
+	int16_t lastTy = -1;
+	for (int16_t r = 0; r < BANDHEIGHT; r++)
+	{
+		//the tile row this screen row falls in, the tile above covers the rows before it
+		const int16_t ty = (bandY0 + r + msy) / TileHeight;
+		if (ty == lastTy)
+		{
+			//same tiles as the row above, so the same run
+			covX0[r] = covX0[r - 1];
+			covX1[r] = covX1[r - 1];
+			continue;
+		}
+		lastTy = ty;
+		if ((ty < 0) || (ty >= NrOfRows))
+			continue;
+		int16_t bestStart = 0, bestLen = 0, start = 0, len = 0;
+		for (int16_t tx = tx0; tx <= tx1; tx++)
+		{
+			if ((tx >= 0) && (tx < NrOfCols) && BitGet(Flood->coverHere, TILEBIT(tx, ty)))
+			{
+				if (len == 0)
+					start = tx;
+				len++;
+				if (len > bestLen)
+				{
+					bestLen = len;
+					bestStart = start;
+				}
+			}
+			else
+				len = 0;
+		}
+		if (bestLen == 0)
+			continue;
+		//the tiles in screen pixels, clipped to the strip
+		int16_t x0 = bestStart * TileWidth - msx;
+		int16_t x1 = (bestStart + bestLen) * TileWidth - msx;
+		if (x0 < bandX0)
+			x0 = bandX0;
+		if (x1 > bandX0 + bandW)
+			x1 = bandX0 + bandW;
+		if (x1 > x0)
+		{
+			covX0[r] = x0;
+			covX1[r] = x1;
+		}
+	}
+}
+#endif
+
 //the background is a full screen image so it lines up with the band
 static void BandBackground()
 {
@@ -623,7 +792,10 @@ static void BandBackground()
 		uint8_t used = bgRowUsed[bandY0 + r]; //pixels of this control that lie before the row
 		uint16_t skip = bandX0;               //pixels of the row left of the strip
 		uint16_t left = bandW;
+		int16_t pos = bandX0;                 //screen column the next pixels go to
 		uint16_t* drow = &bandBuf[r * bandW];
+		//the opaque sprites paint over these, decoding them would be thrown away
+		const int16_t hide0 = covX0[r], hide1 = covX1[r];
 		while (left > 0)
 		{
 			uint8_t control = PLATFORM_READ_BYTE(data);
@@ -639,18 +811,50 @@ static void BandBackground()
 				skip = 0;
 				if (avail > left)
 					avail = left;
-				if (run)
+				//this control covers [pos, end), the sprites hide [hide0, hide1) of the row:
+				//what is left is the piece before the hidden run and the piece after it
+				const int16_t end = pos + avail;
+				int16_t spans[2][2];
+				int16_t parts = 0;
+				if (hide1 <= hide0)
 				{
-					uint16_t col = ReadPixel(data + 1);
-					for (uint8_t i = 0; i < avail; i++)
-						*drow++ = col;
+					//nothing hidden on this row
+					spans[0][0] = pos;
+					spans[0][1] = end;
+					parts = 1;
 				}
 				else
 				{
-					const uint8_t* src = data + 1 + used * 2;
-					for (uint8_t i = 0; i < avail; i++, src += 2)
-						*drow++ = ReadPixel(src);
+					if (pos < hide0)
+					{
+						spans[parts][0] = pos;
+						spans[parts][1] = (end < hide0) ? end : hide0;
+						parts++;
+					}
+					if (end > hide1)
+					{
+						spans[parts][0] = (pos > hide1) ? pos : hide1;
+						spans[parts][1] = end;
+						parts++;
+					}
 				}
+				const uint16_t col = run ? ReadPixel(data + 1) : 0;
+				for (int16_t part = 0; part < parts; part++)
+				{
+					const int16_t s = spans[part][0];
+					const int16_t n = spans[part][1] - s;
+					uint16_t* d = drow + (s - pos);
+					if (run)
+					{
+						for (int16_t i = 0; i < n; i++)
+							d[i] = col;
+					}
+					else
+						//the pixels are little endian RGB565 like the strip, copied as they are
+						BandCopy(d, data + 1 + (used + (s - pos)) * 2, n);
+				}
+				drow += avail;
+				pos = end;
 				left -= avail;
 			}
 			used = 0;
@@ -669,25 +873,22 @@ static void BandSprite(int16_t sx, int16_t sy, const uint8_t* image, bool keyed)
 		(sx + TileWidth <= bandX0) || (sx >= bandX0 + bandW))
 		return;
 
-	const uint16_t* src = (const uint16_t*)image;
-	for (int16_t r = 0; r < TileHeight; r++)
+	//clipped once here instead of per pixel: the rows and the columns of the sprite that
+	//land in the strip
+	const int16_t r0 = (sy < bandY0) ? bandY0 - sy : 0;
+	const int16_t r1 = (sy + TileHeight > bandY0 + BANDHEIGHT) ? bandY0 + BANDHEIGHT - sy : TileHeight;
+	const int16_t c0 = (sx < bandX0) ? bandX0 - sx : 0;
+	const int16_t c1 = (sx + TileWidth > bandX0 + bandW) ? bandX0 + bandW - sx : TileWidth;
+	const int16_t cols = c1 - c0;
+	//little endian RGB565 like the strip, so a visible row is copied as it is
+	for (int16_t r = r0; r < r1; r++)
 	{
-		int16_t dy = sy + r - bandY0;
-		if ((dy < 0) || (dy >= BANDHEIGHT))
-			continue;
-		uint16_t* drow = &bandBuf[dy * bandW];
-		const uint16_t* srow = &src[r * TileWidth];
-		for (int16_t c = 0; c < TileWidth; c++)
-		{
-			int16_t dx = sx + c - bandX0;
-			if ((dx < 0) || (dx >= bandW))
-				continue;
-			uint16_t col = PLATFORM_READ_WORD(&srow[c]);
-			//magenta is the transparent key, 0xF81F in RGB565
-			if (keyed && (col == 0xF81F))
-				continue;
-			drow[dx] = col;
-		}
+		uint16_t* drow = &bandBuf[(sy + r - bandY0) * bandW + (sx + c0 - bandX0)];
+		const uint8_t* src = image + (r * TileWidth + c0) * sizeof(uint16_t);
+		if (keyed)
+			BandCopyKeyed(drow, src, cols);
+		else
+			BandCopy(drow, src, cols);
 	}
 }
 
@@ -727,10 +928,11 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 
 #if FLOODFILLFLOOR
 	//work out where floor is, and repaint everything if that changed
-	CWorldParts_DrawFloor(WorldParts, WorldParts->Player);
-	if (floorHere && (memcmp(floorHere, floorPrev, TILEBITS) != 0))
+	//without the floodfill buffers there is no floor to paint this frame
+	const bool hasFloor = CWorldParts_DrawFloor(WorldParts, WorldParts->Player);
+	if (hasFloor && (memcmp(Flood->floorHere, Flood->floorPrev, TILEBITS) != 0))
 	{
-		memcpy(floorPrev, floorHere, TILEBITS);
+		memcpy(Flood->floorPrev, Flood->floorHere, TILEBITS);
 		CWorldParts_MarkAllDirty();
 	}
 #endif
@@ -776,53 +978,61 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 		//one window for the whole row, the halves are streamed into it in order
 		SCREEN.setAddrWindow(bandX0, cy * TileHeight, bandW, TileHeight);
 
-		for (int16_t half = 0; half < TileHeight; half += BANDHEIGHT)
-		{
-			bandY0 = cy * TileHeight + half;
+		bandY0 = cy * TileHeight;
 
-			BandBackground();
+		//where the opaque sprites will paint over the background, so it is not decoded there
+#if FLOODFILLFLOOR
+		if (hasFloor)
+			BandFindCovered(msx, msy);
+		else
+			BandClearCovered();
+#else
+		BandClearCovered();
+#endif
+
+		BandBackground();
 
 #if FLOODFILLFLOOR
-			//floor, only the playfield tiles that reach into this strip
-			if (floorHere)
-			{
-				int16_t wx0 = bandX0 + msx;
-				int16_t wx1 = bandX0 + bandW - 1 + msx;
-				int16_t wy = bandY0 + msy;
-				for (int16_t ty = wy / TileHeight; ty <= (wy + BANDHEIGHT - 1) / TileHeight; ty++)
-					for (int16_t tx = wx0 / TileWidth; tx <= wx1 / TileWidth; tx++)
-						if ((tx >= 0) && (tx < NrOfCols) && (ty >= 0) && (ty < NrOfRows) && BitGet(floorHere, TILEBIT(tx, ty)))
-							BandSprite(tx * TileWidth - msx, ty * TileHeight - msy, IMGFloor, false);
-			}
+		//floor, only the playfield tiles that reach into this strip
+		if (hasFloor)
+		{
+			int16_t wx0 = bandX0 + msx;
+			int16_t wx1 = bandX0 + bandW - 1 + msx;
+			int16_t wy = bandY0 + msy;
+			for (int16_t ty = wy / TileHeight; ty <= (wy + BANDHEIGHT - 1) / TileHeight; ty++)
+				for (int16_t tx = wx0 / TileWidth; tx <= wx1 / TileWidth; tx++)
+					if ((tx >= 0) && (tx < NrOfCols) && (ty >= 0) && (ty < NrOfRows) && BitGet(Flood->floorHere, TILEBIT(tx, ty)))
+						BandSprite(tx * TileWidth - msx, ty * TileHeight - msy, IMGFloor, !IMGFloorOpaque);
+		}
 #endif
 
-			//the parts, in the order the list is sorted so layering is kept
-			for (Teller = 0; Teller < WorldParts->ItemCount; Teller++)
-			{
-				CWorldPart* Part = WorldParts->Items[Teller];
-				int16_t sy = Part->Y - msy;
-				if ((sy + TileHeight <= bandY0) || (sy >= bandY0 + BANDHEIGHT))
-					continue;
-				if (!PartVisible(WorldParts, Part))
-					continue;
-				BandSprite(Part->X - msx, sy, CWorldPart_SpriteData(Part), true);
-			}
+		//the parts, in the order the list is sorted so layering is kept
+		for (Teller = 0; Teller < WorldParts->ItemCount; Teller++)
+		{
+			CWorldPart* Part = WorldParts->Items[Teller];
+			int16_t sy = Part->Y - msy;
+			if ((sy + TileHeight <= bandY0) || (sy >= bandY0 + BANDHEIGHT))
+				continue;
+			if (!PartVisible(WorldParts, Part))
+				continue;
+			//a box, a wall or a spot has no transparent pixel, its rows go in as one copy
+			BandSprite(Part->X - msx, sy, CWorldPart_SpriteData(Part), !PartOpaque(Part->Type));
+		}
 
-			//moving parts go on top, as they did before
-			for (Teller = 0; Teller < WorldParts->MoveAbleItemCount; Teller++)
-			{
-				CWorldPart* Part = WorldParts->MoveAbleItems[Teller];
+		//moving parts go on top, as they did before
+		for (Teller = 0; Teller < WorldParts->MoveAbleItemCount; Teller++)
+		{
+			CWorldPart* Part = WorldParts->MoveAbleItems[Teller];
 
-				BandSprite(Part->X - msx, Part->Y - msy, CWorldPart_SpriteData(Part), true);
-			}
+			BandSprite(Part->X - msx, Part->Y - msy, CWorldPart_SpriteData(Part), !PartOpaque(Part->Type));
+		}
 
 #if LOVYANGFX
-			//true: bandBuf holds plain RGB565, the library puts it in display order
-			SCREEN.writePixels((const uint16_t*)bandBuf, bandW * BANDHEIGHT, true);
+		//true: bandBuf holds plain RGB565, the library puts it in display order
+		SCREEN.writePixels((const uint16_t*)bandBuf, bandW * BANDHEIGHT, true);
 #else
-			SCREEN.pushPixels(bandBuf, bandW * BANDHEIGHT);
+		SCREEN.pushPixels(bandBuf, bandW * BANDHEIGHT);
 #endif
-		}
 		painted = true;
 	}
 	if (painted)
@@ -844,4 +1054,7 @@ void CWorldParts_Destroy(CWorldParts* WorldParts)
 		CWorldPart_Destroy(WorldParts->Items[Teller]);
 		WorldParts->Items[Teller] = NULL;
 	}
+#if FLOODFILLFLOOR
+	FloodDestroy();
+#endif
 }

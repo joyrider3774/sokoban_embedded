@@ -94,7 +94,7 @@ Level packs are built into the game. To add one, put its .sok file in `assets/le
 | B | Back in options and level selector, ask to quit to the level selector in game, leave free view |
 | L | Ask to restart the level |
 | R | Enter or leave free view |
-| Up + Down | Show or hide the debug info |
+| (A) + Left + Down | Show or hide the debug info |
 
 ## Credits
 Game is an adaptation from the gp2x version i (willems davy, aka joyrider3774) initially made many years ago

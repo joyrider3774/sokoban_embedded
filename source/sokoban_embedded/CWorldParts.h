@@ -53,7 +53,7 @@ bool CWorldParts_LoadFromLevelPackFile(CWorldParts* WorldParts, CLevelPackFile* 
 bool CWorldParts_ItemExists(CWorldParts* WorldParts, int8_t PlayFieldXin,int8_t PlayFieldYin, uint8_t Type);
 void CWorldParts_Destroy(CWorldParts* WorldParts);
 #if FLOODFILLFLOOR
-void CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player);
+bool CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player);
 #endif
 
 
