@@ -9,6 +9,13 @@ Once all boxes are pushed to the correct spots the level is finished.
 The game comes with 19 built in level packs, made from ascii (.sok) level sets, with a total amount of nearly 2000 levels.
 The game also has an undo system for the last 25 moves. 
 
+## Screenshots
+The browser build, at twice the game's own 128x128:
+
+| Title screen | In game |
+| --- | --- |
+| ![Sokoban title screen](metadata/screenshots/title.png) | ![Sokoban in game](metadata/screenshots/ingame.png) |
+
 ## Devices
 Every [release](https://github.com/joyrider3774/sokoban_embedded/releases) has a build for every device. `releases/` is where a build of your own puts them, it is not part of the repository:
 
