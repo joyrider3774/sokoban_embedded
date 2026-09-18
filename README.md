@@ -16,33 +16,34 @@ The browser build, at twice the game's own 128x128:
 | --- | --- |
 | ![Sokoban title screen](metadata/screenshots/title.png) | ![Sokoban in game](metadata/screenshots/ingame.png) |
 
-## Devices
-Every [release](https://github.com/joyrider3774/sokoban_embedded/releases) has a build for every device. `releases/` is where a build of your own puts them, it is not part of the repository:
+## Game Features:
+- 19 level packs with about 2000 levels
+- Max 25x16 level size, levels that are too big are left out
+- Undo System for the last 25 moves
+- 2 skins to choose from (default and black & white)
+- Sound can be switched on or off
+- Free view mode to look around levels that are bigger than the screen
+- Autosaves progress per level pack
 
-| Device | File | How to install |
-| ------ | ---- | -------------- |
-| [ESPboy](https://www.espboy.com/) | ESPboy_Sokoban.bin | flash it, the board is a LOLIN(WEMOS) D1 mini |
-| [Gamebuino META](https://gamebuino.com/gamebuino-meta) | GamebuinoMeta_Sokoban.bin | copy it into a folder on the SD card, the .hex is for flashing it directly |
-| [Adafruit PyBadge](https://www.adafruit.com/product/4200) | PyBadge_Sokoban.uf2 | double press reset and copy it onto the drive that appears |
-| [Adafruit PyGamer](https://www.adafruit.com/product/4242) | PyGamer_Sokoban.uf2 | same as the PyBadge |
-| [Pimoroni PicoSystem](https://shop.pimoroni.com/products/picosystem) | PicoSystem_Sokoban.uf2 | hold X while switching on and copy it onto the drive that appears |
-| [Pimoroni Explorer](https://shop.pimoroni.com/products/explorer?variant=42092697845843) | Explorer_Sokoban.uf2 | hold BOOT while pressing RESET and copy it onto the drive that appears |
-| [Pimoroni Tufty 2350](https://shop.pimoroni.com/products/tufty-2350?variant=55811986227579) | Tufty_Sokoban.uf2 | hold HOME while pressing RESET and copy it onto the drive that appears |
-| [TinyCircuits Thumby Color](https://tinycircuits.com/products/thumby-color) | ThumbyColor_Sokoban.uf2 | put it into bootloader mode and copy it onto the RPI-RP2 drive that appears |
-| [Playdate](https://play.date/) | Playdate_Sokoban.pdx.zip | unzip it and sideload Sokoban.pdx, the same pdx runs in the Playdate simulator |
-| [Libretro / RetroArch](https://www.retroarch.com/) | Libretro_Sokoban.zip | copy sokoban_libretro.dll into RetroArch's cores folder and sokoban_libretro.info into its info folder, then Load Core and Start Core |
-| [Game Boy Advance](https://en.wikipedia.org/wiki/Game_Boy_Advance) | GBA_Sokoban.gba | put it on a flash cart or open it in an emulator, the progress is saved in the cartridge's SRAM |
-| [Nintendo DS](https://en.wikipedia.org/wiki/Nintendo_DS) | NDS_Sokoban.nds | put it on a flash card or open it in an emulator, the progress is saved next to it in Sokoban.sav |
-| [Nintendo 3DS](https://en.wikipedia.org/wiki/Nintendo_3DS) | 3DS_Sokoban.3dsx | copy it into /3ds/ on the SD card and start it from the Homebrew Launcher, or open it in an emulator, the progress is saved in sdmc:/3ds/Sokoban/ |
-| [Nintendo 64](https://en.wikipedia.org/wiki/Nintendo_64) | N64_Sokoban.z64 | put it on a flash cart or open it in an emulator, the progress is saved in the cartridge EEPROM |
-| [PlayStation](https://en.wikipedia.org/wiki/PlayStation_(console)) | PSX_Sokoban.exe | open it in an emulator or send it to a console that runs unsigned code, the progress is not saved yet |
-| [PlayStation Portable](https://en.wikipedia.org/wiki/PlayStation_Portable) | PSP_Sokoban.PBP | rename it to EBOOT.PBP and put it in ms0:/PSP/GAME/Sokoban/ on the memory stick, or open it in PPSSPP |
-| [PlayStation Vita](https://en.wikipedia.org/wiki/PlayStation_Vita) | Vita_Sokoban.vpk | install it with VitaShell on a Vita with homebrew enabled, or open it in Vita3K |
-| Windows | Windows_Sokoban.exe | runs on its own, the progress is saved next to it in Sokoban.sav |
-| MS-DOS | DOS_Sokoban.zip | unzip SOKOBAN.EXE onto a DOS machine or into DOSBox and run it, the progress is saved next to it in SOKOBAN.SAV |
-| Browser | Web_Sokoban.zip | upload it to an itch.io HTML project, or unzip it and open index.html from a web server, the progress is saved in the browser |
+## Playing the Game:
+Sokoban will start up at a main menu, here you can choose the level pack you wish to play by using left and right when the level pack name is selected (it's between "<>" signs).
+If you are new to Sokoban i suggest that you play the "SokWhole" level pack first since these are not so hard to solve. 
+When a level pack is loaded the level selector will show up. Here you select what level you wish to play, if it has been unlocked yet.
+After you solved a level one extra level will be unlocked. you always have to solve to last unlocked level in order to unlock the next one.
 
-`python tools/build_releases.py` builds all of them, `python tools/convert_skins.py` turns the images in `assets/skins` and `assets/skins2` into the headers the game includes and `python tools/convert_levelpacks.py` does the same for the level packs in `assets/levelpacks`. The Playdate build also needs the Playdate SDK, see `platforms/playdate/CMakeLists.txt`, the libretro core libretro-common, see `platforms/libretro/CMakeLists.txt`, the Game Boy Advance build devkitARM and libgba, see `platforms/gba/CMakeLists.txt`, the Nintendo DS build devkitARM, libnds and calico, see `platforms/nds/CMakeLists.txt`, the Nintendo 3DS build devkitARM and libctru, see `platforms/3ds/CMakeLists.txt`, the PlayStation build PSn00bSDK, see `platforms/psx/CMakeLists.txt`, the Nintendo 64 build the mips64-elf toolchain and libdragon, see `platforms/n64/CMakeLists.txt`, the PSP build the pspdev toolchain, see `platforms/psp/CMakeLists.txt` (pspdev has no Windows build, so on Windows it is built from WSL), and the Vita build VitaSDK, see `platforms/vita/CMakeLists.txt`, the browser build Emscripten, see `platforms/web/CMakeLists.txt`, and the MS-DOS build DJGPP, see `platforms/dos/CMakeLists.txt`.
+### Adding level packs
+Level packs are built into the game. To add one, put its .sok file in `assets/levelpacks`, run `python tools/convert_levelpacks.py` and add the pack to the level pack table in the source before building the game again.
+
+## Controls
+
+| Button | Action |
+| ------ | ------ |
+| DPAD | Select menu's, options, level packs or levels. Move the player in game, pan around the level in free view |
+| A | Confirm in menus, level selector and questions asked. Hold it in game to undo moves |
+| B | Back in options and level selector, ask to quit to the level selector in game, leave free view |
+| L | Ask to restart the level |
+| R | Enter or leave free view |
+| (A) + Left + Down | Show or hide the debug info |
 
 ### Buttons
 The game's buttons on every device:
@@ -66,8 +67,8 @@ The game's buttons on every device:
 | PlayStation | d-pad | Cross | Circle | L1 | R1 |
 | PlayStation Portable | d-pad or the analog stick | Cross | Circle | L | R |
 | PlayStation Vita | d-pad or the left stick | Cross | Circle | L | R |
-| Windows | arrow keys | X | C | S | D |
-| MS-DOS | arrow keys | X | C | S | D |
+| Windows | arrow keys | X | C | S | D |
+| MS-DOS | arrow keys | X | C | S | D |
 | Browser | arrow keys | X | C | S | D |
 
 On the Explorer BOOT is held as a shift, the direction pressed with it is not sent.
@@ -98,34 +99,35 @@ On the PlayStation Vita the game is blown up four times to 512x512 in the middle
 
 On the Gamebuino META holding HOME for a second goes back to its loader.
 
-## Game Features:
-- 19 level packs with about 2000 levels
-- Max 25x16 level size, levels that are too big are left out
-- Undo System for the last 25 moves
-- 2 skins to choose from (default and black & white)
-- Sound can be switched on or off
-- Free view mode to look around levels that are bigger than the screen
-- Autosaves progress per level pack
+## Devices
+Every [release](https://github.com/joyrider3774/sokoban_embedded/releases) has a build for every device. `releases/` is where a build of your own puts them, it is not part of the repository:
 
-## Playing the Game:
-Sokoban will start up at a main menu, here you can choose the level pack you wish to play by using left and right when the level pack name is selected (it's between "<>" signs).
-If you are new to Sokoban i suggest that you play the "SokWhole" level pack first since these are not so hard to solve. 
-When a level pack is loaded the level selector will show up. Here you select what level you wish to play, if it has been unlocked yet.
-After you solved a level one extra level will be unlocked. you always have to solve to last unlocked level in order to unlock the next one.
+| Device | File | How to install |
+| ------ | ---- | -------------- |
+| [ESPboy](https://www.espboy.com/) | ESPboy_Sokoban.bin | flash it, the board is a LOLIN(WEMOS) D1 mini |
+| [Gamebuino META](https://gamebuino.com/gamebuino-meta) | GamebuinoMeta_Sokoban.bin | copy it into a folder on the SD card, the .hex is for flashing it directly |
+| [Adafruit PyBadge](https://www.adafruit.com/product/4200) | PyBadge_Sokoban.uf2 | double press reset and copy it onto the drive that appears |
+| [Adafruit PyGamer](https://www.adafruit.com/product/4242) | PyGamer_Sokoban.uf2 | same as the PyBadge |
+| [Pimoroni PicoSystem](https://shop.pimoroni.com/products/picosystem) | PicoSystem_Sokoban.uf2 | hold X while switching on and copy it onto the drive that appears |
+| [Pimoroni Explorer](https://shop.pimoroni.com/products/explorer?variant=42092697845843) | Explorer_Sokoban.uf2 | hold BOOT while pressing RESET and copy it onto the drive that appears |
+| [Pimoroni Tufty 2350](https://shop.pimoroni.com/products/tufty-2350?variant=55811986227579) | Tufty_Sokoban.uf2 | hold HOME while pressing RESET and copy it onto the drive that appears |
+| [TinyCircuits Thumby Color](https://tinycircuits.com/products/thumby-color) | ThumbyColor_Sokoban.uf2 | put it into bootloader mode and copy it onto the RPI-RP2 drive that appears |
+| [Playdate](https://play.date/) | Playdate_Sokoban.pdx.zip | unzip it and sideload Sokoban.pdx, the same pdx runs in the Playdate simulator |
+| [Libretro / RetroArch](https://www.retroarch.com/) | Libretro_Sokoban.zip | copy sokoban_libretro.dll into RetroArch's cores folder and sokoban_libretro.info into its info folder, then Load Core and Start Core |
+| [Game Boy Advance](https://en.wikipedia.org/wiki/Game_Boy_Advance) | GBA_Sokoban.gba | put it on a flash cart or open it in an emulator, the progress is saved in the cartridge's SRAM |
+| [Nintendo DS](https://en.wikipedia.org/wiki/Nintendo_DS) | NDS_Sokoban.nds | put it on a flash card or open it in an emulator, the progress is saved next to it in Sokoban.sav |
+| [Nintendo 3DS](https://en.wikipedia.org/wiki/Nintendo_3DS) | 3DS_Sokoban.3dsx | copy it into /3ds/ on the SD card and start it from the Homebrew Launcher, or open it in an emulator, the progress is saved in sdmc:/3ds/Sokoban/ |
+| [Nintendo 64](https://en.wikipedia.org/wiki/Nintendo_64) | N64_Sokoban.z64 | put it on a flash cart or open it in an emulator, the progress is saved in the cartridge EEPROM |
+| [PlayStation](https://en.wikipedia.org/wiki/PlayStation_(console)) | PSX_Sokoban.exe | open it in an emulator or send it to a console that runs unsigned code, the progress is not saved yet |
+| [PlayStation Portable](https://en.wikipedia.org/wiki/PlayStation_Portable) | PSP_Sokoban.PBP | rename it to EBOOT.PBP and put it in ms0:/PSP/GAME/Sokoban/ on the memory stick, or open it in PPSSPP |
+| [PlayStation Vita](https://en.wikipedia.org/wiki/PlayStation_Vita) | Vita_Sokoban.vpk | install it with VitaShell on a Vita with homebrew enabled, or open it in Vita3K |
+| Windows | Windows_Sokoban.exe | runs on its own, the progress is saved next to it in Sokoban.sav |
 
-### Adding level packs
-Level packs are built into the game. To add one, put its .sok file in `assets/levelpacks`, run `python tools/convert_levelpacks.py` and add the pack to the level pack table in the source before building the game again.
+| MS-DOS | DOS_Sokoban.zip | unzip SOKOBAN.EXE onto a DOS machine or into DOSBox and run it, the progress is saved next to it in SOKOBAN.SAV |
 
-## Controls
+| Browser | Web_Sokoban.zip | upload it to an itch.io HTML project, or unzip it and open index.html from a web server, the progress is saved in the browser |
 
-| Button | Action |
-| ------ | ------ |
-| DPAD | Select menu's, options, level packs or levels. Move the player in game, pan around the level in free view |
-| A | Confirm in menus, level selector and questions asked. Hold it in game to undo moves |
-| B | Back in options and level selector, ask to quit to the level selector in game, leave free view |
-| L | Ask to restart the level |
-| R | Enter or leave free view |
-| (A) + Left + Down | Show or hide the debug info |
+`python tools/build_releases.py` builds all of them, `python tools/convert_skins.py` turns the images in `assets/skins` and `assets/skins2` into the headers the game includes and `python tools/convert_levelpacks.py` does the same for the level packs in `assets/levelpacks`. The Playdate build also needs the Playdate SDK, see `platforms/playdate/CMakeLists.txt`, the libretro core libretro-common, see `platforms/libretro/CMakeLists.txt`, the Game Boy Advance build devkitARM and libgba, see `platforms/gba/CMakeLists.txt`, the Nintendo DS build devkitARM, libnds and calico, see `platforms/nds/CMakeLists.txt`, the Nintendo 3DS build devkitARM and libctru, see `platforms/3ds/CMakeLists.txt`, the PlayStation build PSn00bSDK, see `platforms/psx/CMakeLists.txt`, the Nintendo 64 build the mips64-elf toolchain and libdragon, see `platforms/n64/CMakeLists.txt`, the PSP build the pspdev toolchain, see `platforms/psp/CMakeLists.txt` (pspdev has no Windows build, so on Windows it is built from WSL), and the Vita build VitaSDK, see `platforms/vita/CMakeLists.txt`, the browser build Emscripten, see `platforms/web/CMakeLists.txt`, and the MS-DOS build DJGPP, see `platforms/dos/CMakeLists.txt`.
 
 ## Credits
 Game is an adaptation from the gp2x version i (willems davy, aka joyrider3774) initially made many years ago
