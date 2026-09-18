@@ -1,5 +1,5 @@
 # Game Boy Advance build of Sokoban: the game's own sources with the PLATFORM_GBA platform
-# (source/sokoban_embedded/PlatformGBA.*), devkitARM and libgba (toolchain.cmake, C:/gba_dev by default).
+# (source/sokoban_embedded/PlatformGBA.*), devkitARM and libgba (toolchain.cmake, C:/devkitarm by default).
 #
 # With MSYS2's cmake and ninja, from this folder:
 #   cmake -S . -B build -G Ninja

@@ -796,7 +796,7 @@ void LoadSettings()
 			SelectedLevelPack = Teller;
 			//every name is stored terminated within MaxLevelPackNameLength, the precision
 			//only tells the compiler it can not run on into the next name
-			snprintf(LevelPackName, MaxLevelPackNameLength, "%.*s", MaxLevelPackNameLength - 1, InstalledLevelPacks[SelectedLevelPack]);
+			snprintf(LevelPackName, MaxLevelPackNameLength, "%s", InstalledLevelPacks[SelectedLevelPack]);
 			break;
 		}
 }
