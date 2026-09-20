@@ -83,7 +83,7 @@ Every [release](https://github.com/joyrider3774/sokoban_embedded/releases) has a
 | Device | File | How to install |
 | ------ | ---- | -------------- |
 | [ESPboy](https://www.espboy.com/) | ESPboy_Sokoban.bin | flash it, the board is a LOLIN(WEMOS) D1 mini |
-| [Gamebuino META](https://gamebuino.com/gamebuino-meta) | GamebuinoMeta_Sokoban.bin | copy it into a folder on the SD card, the .hex is for flashing it directly |
+| [Gamebuino META](https://gamebuino.com/gamebuino-meta) | GamebuinoMeta_Sokoban.zip | unzip it onto the SD card, it holds a Sokoban_embedded folder with the game, its save and the loader's images, the .hex in it is for flashing the game directly |
 | [Adafruit PyBadge](https://www.adafruit.com/product/4200) | PyBadge_Sokoban.uf2 | double press reset and copy it onto the drive that appears |
 | [Adafruit PyGamer](https://www.adafruit.com/product/4242) | PyGamer_Sokoban.uf2 | same as the PyBadge |
 | [Pimoroni PicoSystem](https://shop.pimoroni.com/products/picosystem) | PicoSystem_Sokoban.uf2 | hold X while switching on and copy it onto the drive that appears |
