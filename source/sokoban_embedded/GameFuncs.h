@@ -3,16 +3,18 @@
 
 #include <stdint.h>
 #include <stddef.h>
+//for PLATFORM_FAST_CODE, which marks the calls that run once for every pixel
+#include "Platform.h"
 
 void LoadGraphics(void);
 uint8_t CurrentSkin(void);
-void DrawImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image);
+PLATFORM_FAST_CODE void DrawImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image);
 //the same, magenta pixels are left out
-void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image);
+PLATFORM_FAST_CODE void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image);
 //draws a run length encoded full screen image (tools/png2rle565.py)
-void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* data);
+PLATFORM_FAST_CODE void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* data);
 //only exists with a screen buffer: draws an image into it, transparent skips magenta pixels
-void DrawImageToBuffer(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image, bool transparent);
+PLATFORM_FAST_CODE void DrawImageToBuffer(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image, bool transparent);
 void FindLevels();
 //signatures are built as GameState * 100000 + ..., too big for 16 bits
 bool ScreenChanged(int32_t signature);
