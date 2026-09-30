@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "GameFuncs.h"
+//the one bit pictures of the black & white skin, which the band renderer reads too
+#include "onebitimage.h"
 #include "CLevelPackFile.h"
 #include "Common.h"
 #include "Sound.h"
@@ -99,6 +101,14 @@ void DrawImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image)
 {
 	if (!image)
 		return;
+#if ONEBITIMAGES
+	if (skinImagesOneBit)
+	{
+		//the picture carries its own size and is drawn whole
+		drawImageOneBitPart(x, y, 0, 0, w, h, image, false);
+		return;
+	}
+#endif
 #if (SCREENBUFFER == 1) || (SCREENBUFFER && LOVYANGFX)
 	DrawImageToBuffer(x, y, w, h, image, false);
 #elif LOVYANGFX
@@ -145,6 +155,14 @@ void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint
 {
 	if (!image)
 		return;
+#if ONEBITIMAGES
+	if (skinImagesOneBit)
+	{
+		//the picture carries its own size and is drawn whole
+		drawImageOneBitPart(x, y, 0, 0, w, h, image, true);
+		return;
+	}
+#endif
 	const uint16_t* src = (const uint16_t*)image;
 #if (SCREENBUFFER == 0) && !LOVYANGFX
 	GFX.pushImage(x, y, w, h, src, 0xF81F);
@@ -203,8 +221,32 @@ void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint
 //The data is read here with PLATFORM_READ_BYTE and PLATFORM_READ_BYTES: LovyanGFX reads
 //image data through plain pointers, but PROGMEM on the ESP8266 is flash that only takes
 //32 bit reads, so none of its image functions may be handed the data
+//Draws one frame of a sprite sheet. The frames are stacked down a sheet one tile wide, so a
+//RGB565 sheet has the frame picked out by CWorldPart_SpriteData stepping the pointer, while a one
+//bit sheet is handed over whole and the frame is the part of it that starts at that row
+void DrawSpriteFrame(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image, uint8_t frame)
+{
+	if (!image)
+		return;
+#if ONEBITIMAGES
+	if (skinImagesOneBit)
+	{
+		drawImageOneBitPart(x, y, 0, frame * h, w, h, image, true);
+		return;
+	}
+#endif
+	DrawImageTransparent(x, y, w, h, image);
+}
+
 void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* data)
 {
+#if ONEBITIMAGES
+	if (skinImagesOneBit)
+	{
+		drawImageOneBitPart(x, y, 0, 0, w, h, data, false);
+		return;
+	}
+#endif
 #if SCREENBUFFER
 	//decoded straight into the buffer instead of streamed to the display. The pixels of a
 	//control go in a row at a time: the part of the row that is on screen is worked out once,
@@ -347,10 +389,19 @@ void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* dat
 //has see through parts simply does not get the shortcut
 bool IMGBoxOpaque = false, IMGWallOpaque = false, IMGSpotOpaque = false, IMGFloorOpaque = false;
 
+//1 while the skin in use keeps its pictures one bit a pixel
+bool skinImagesOneBit = false;
+
 static bool ImageOpaque(const uint8_t* image, size_t bytes)
 {
 	if (!image)
 		return false;
+#if ONEBITIMAGES
+	//a one bit picture carries a mask only when it has something to skip, so that is the
+	//whole of the question here
+	if (skinImagesOneBit)
+		return OneBitMaskAt(image) == 0;
+#endif
 	for (size_t i = 0; i < bytes; i += sizeof(uint16_t))
 		//magenta is the transparent key, 0xF81F in RGB565
 		if ((PLATFORM_READ_BYTE(image + i) | (PLATFORM_READ_BYTE(image + i + 1) << 8)) == 0xF81F)
@@ -363,6 +414,8 @@ static bool ImageOpaque(const uint8_t* image, size_t bytes)
 
 void LoadGraphics(void)
 {
+	//the black & white skin keeps its pictures one bit a pixel, the others as RGB565
+	skinImagesOneBit = ONEBITIMAGES && (CurrentSkin() == SKINBLACKWHITE);
 	switch (CurrentSkin())
 	{
 #if SKINBUILT(0)
@@ -409,7 +462,9 @@ void LoadGraphics(void)
 // reset rather than trusted.
 // ===========================================================================
 
-#define STORE_VERSION    1
+//2: a pack is remembered by a sum of its name and no longer by the name, so a record
+//written by an older build is a different shape and is turned away by this
+#define STORE_VERSION    2
 #define UNLOCK_MAGIC     0x424C  //"BL"
 #define SETTINGS_MAGIC   0x4253  //"BS"
 
@@ -423,7 +478,8 @@ struct UnlockRecord
 	uint16_t magic;
 	uint8_t  version;
 	uint8_t  packCount;
-	char     packName[MaxLevelPacks][MaxLevelPackNameLength];
+	//what PackId() makes of each pack's name, in the order the packs claimed a slot
+	uint16_t packId[MaxLevelPacks];
 	uint16_t unlocked[MaxLevelPacks];
 	uint16_t crc;   //covers every byte before it
 };
@@ -434,15 +490,20 @@ struct SettingsRecord
 	uint16_t magic;
 	uint8_t  version;
 	uint8_t  flags;                          //SETTING_MUSIC, SETTING_SOUND
-	char     levelPack[MaxLevelPackNameLength];
 	int8_t  skin;
+	//the compiler would leave this gap anyway, keeping what follows on an even offset; it is
+	//named so that every byte the crc covers is one the records set
+	uint8_t  pad;
+	uint16_t packId;                         //the pack that was being played, see PackId()
 	uint16_t crc;   //covers every byte before it
 };
 
 #define STORE_UNLOCK_ADDR    0
-//must stay at or above sizeof(UnlockRecord), which grows with MaxLevelPacks.
-//the static_assert below fails the build if this is ever too small again
-#define STORE_SETTINGS_ADDR  1024
+//The settings follow the unlock record rather than sitting at a fixed address. That record used
+//to be nearly a kilobyte, since it held a name for every pack; now that it holds a sum of each
+//name it is under a hundred bytes, and leaving a kilobyte of room in front of the settings would
+//be the largest thing the game saves
+#define STORE_SETTINGS_ADDR  sizeof(UnlockRecord)
 #define STORE_TOTAL          (STORE_SETTINGS_ADDR + sizeof(SettingsRecord))
 
 //the unlock record must never grow into the settings, this stops compiling if it does
@@ -513,10 +574,20 @@ static bool UnlockRead(UnlockRecord* rec)
 }
 
 //index of a pack in the record, or -1 when it has never been played
+//A pack is remembered by a sum of its name rather than by the name itself: the record has to tell
+//one pack from another whatever order they are built in and whichever of them a build leaves out,
+//and a sum does that in two bytes where a name took fifty. Two packs that summed alike would
+//share an unlock count, which is all a collision costs here
+static uint16_t PackId(const char* name)
+{
+	return name ? StoreCrc((const uint8_t*)name, (uint16_t)strlen(name)) : 0;
+}
+
 static int8_t UnlockFindPack(const UnlockRecord* rec, const char* name)
 {
+	const uint16_t want = PackId(name);
 	for (uint8_t Teller = 0; Teller < rec->packCount; Teller++)
-		if (strncmp(rec->packName[Teller], name, MaxLevelPackNameLength - 1) == 0)
+		if (rec->packId[Teller] == want)
 			return Teller;
 	return -1;
 }
@@ -534,8 +605,7 @@ void SaveUnlockData()
 		if (rec.packCount >= MaxLevelPacks)
 			return;
 		idx = rec.packCount++;
-		memset(rec.packName[idx], 0, MaxLevelPackNameLength);
-		snprintf(rec.packName[idx], MaxLevelPackNameLength, "%s", LevelPackName);
+		rec.packId[idx] = PackId(LevelPackName);
 	}
 
 	if (rec.unlocked[idx] == UnlockedLevels)
@@ -587,9 +657,6 @@ static bool SettingsRead(SettingsRecord* rec)
 	if (rec->magic != SETTINGS_MAGIC)
 		return false;
 	if (rec->version != STORE_VERSION)
-		return false;
-	//a name that never terminates would run off the end of the record
-	if (rec->levelPack[MaxLevelPackNameLength - 1] != 0)
 		return false;
 	if (rec->skin >= 2)
 		return false;	
@@ -802,7 +869,7 @@ void LoadSettings()
 	//the stored pack only counts if it is still installed, otherwise whatever
 	//SearchForLevelPacks picked stays selected
 	for (uint8_t Teller = 0; Teller < InstalledLevelPacksCount; Teller++)
-		if (strncmp(rec.levelPack, InstalledLevelPacks[Teller], MaxLevelPackNameLength - 1) == 0)
+		if (rec.packId == PackId(InstalledLevelPacks[Teller]))
 		{
 			SelectedLevelPack = Teller;
 			//every name is stored terminated within MaxLevelPackNameLength, the precision
@@ -820,16 +887,14 @@ void SaveSettings()
 
 	uint8_t flags = (uint8_t)((isMusicOn() ? SETTING_MUSIC : 0) | (isSoundOn() ? SETTING_SOUND : 0));
 
-	char name[MaxLevelPackNameLength];
-	memset(name, 0, MaxLevelPackNameLength);
-	snprintf(name, sizeof(name), "%s", LevelPackName);
+	const uint16_t packId = PackId(LevelPackName);
 
-	if ((rec.flags == flags) && (rec.skin == skin) && (memcmp(rec.levelPack, name, MaxLevelPackNameLength) == 0))
+	if ((rec.flags == flags) && (rec.skin == skin) && (rec.packId == packId))
 		return;   //nothing changed, leave the flash alone
 
 	rec.flags = flags;
 	rec.skin = skin;
-	memcpy(rec.levelPack, name, MaxLevelPackNameLength);
+	rec.packId = packId;
 	StoreWrite(STORE_SETTINGS_ADDR, (uint8_t*)&rec, sizeof(SettingsRecord));
 }
 

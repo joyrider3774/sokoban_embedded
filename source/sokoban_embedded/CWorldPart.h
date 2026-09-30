@@ -61,6 +61,8 @@ bool CWorldPart_CanMoveTo(CWorldPart* WorldPart, const int8_t PlayFieldXin,const
 void CWorldPart_Move(CWorldPart* WorldPart);
 void CWorldPart_Draw(CWorldPart* WorldPart);
 const uint8_t* CWorldPart_SpriteData(CWorldPart* WorldPart);
+//which frame of its sheet the part shows, see CWorldPart_SpriteData
+uint8_t CWorldPart_SpriteFrame(CWorldPart* WorldPart);
 
 void CWorldPart_Destroy(CWorldPart* WorldPart);
 

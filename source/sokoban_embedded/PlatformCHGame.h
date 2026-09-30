@@ -40,17 +40,49 @@
 #endif
 
 //Only one skin fits in the flash next to the game: -1 = every skin, n = only skin n, see
-//FORCESKIN in defines.h. A 1 bpp buffer picks the black & white skin itself. A build can
-//still set it itself
+//FORCESKIN in defines.h. The black & white skin is the one that is taken: its pictures are packed
+//one bit a pixel rather than kept as RGB565, which comes to 689 bytes where the default skin's
+//come to 6132, and that is room for another level pack. A 1 bpp buffer picks that skin itself,
+//and a build can still ask for another one
 #if !defined(FORCESKIN) && (SCREENBUFFER != 1)
-#define FORCESKIN 0
+#define FORCESKIN SKINBLACKWHITE
 #endif
 
-//Not every level pack fits in the flash next to the game: the three biggest are left out, see
-//LEVELPACKS in Defines.h. A build can still set it itself
+//Barely any of the level packs fit in the flash beside the game: they come to 262032 bytes run
+//length encoded where the device has 50944 for everything, and a build has room for about 5600 of
+//them. The two smallest are what a build made here rather than by tools/build_releases.py takes,
+//and the release tool builds a binary for each of the packs that fit, see its TARGETS
 #ifndef LEVELPACKS
-#define LEVELPACKS (LP_ALL & ~(LP_696 | LP_GRIGoRusha_Remodel_Club | LP_Erim_Sever_Collection))
+#define LEVELPACKS (LP_GRIGoRusha_Sun | LP_Myriocosmos)
 #endif
+
+//The pool of world parts is the largest thing the game asks the heap for and this device has 20k of
+//ram for everything, so it is sized from the busiest level of the packs the build actually ships
+//rather than from a full playfield that no sokoban level comes near. A grid of 25 by 16 would be 402
+//parts where the busiest level of any pack is 222 and most packs are under 100, and asking for the
+//402 left no room for the pool at all: every level came up empty. 2 slots over, as elsewhere.
+//LEVELPACKMAXPARTS is counted by tools/convert_levelpacks.py
+#ifndef MAXWORLDPARTS
+#define MAXWORLDPARTS (LEVELPACKMAXPARTS + 2)
+#endif
+
+//The floor the floodfill finds is not drawn on this device. It was about 40% of the sprite rows of
+//a scrolling frame, and the floodfill itself ran every frame whether anything moved or not, which
+//was more than half the cost of a still one. Leaving it out also hands back the floodfill's
+//bitmaps and its tile stack, which this device wants for the level. A build can still ask for it
+#ifndef FLOODFILLFLOOR
+#define FLOODFILLFLOOR 0
+#endif
+
+//The pixel loops are put in ram rather than run from flash. The core fetches from flash with wait
+//states and does not guess at branches, so a short loop with a test in it runs several times slower
+//there: the byte swap in writePixels costs about 9 cycles a pixel while the same loops cost 60 to
+//110 from flash, for work that is not much different. There is no .highcode section in this board's
+//linker script, but .data is loaded into ram from flash at startup, so a function put there is
+//copied with it and runs from ram. noinline as well, or a static loop called from one place is
+//folded into its caller and lands back in flash with it, the section asking for nothing. Only the
+//innermost loops are marked, the ram is needed for the level
+#define PLATFORM_HOT_CODE __attribute__((section(".data.hotcode"), noinline))
 
 //What the game draws with, shared by the display and the screen buffer: rectangles and the
 //text of the GLCD font, with the arguments LovyanGFX takes

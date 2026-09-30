@@ -60,6 +60,19 @@
 //1 when the images of skin n are part of the build
 #define SKINBUILT(n) ((FORCESKIN < 0) || (FORCESKIN == (n)))
 
+//1 when the black & white skin is in the build, whose pictures are packed one bit a pixel
+//by tools/onebit.py and drawn by the routines in onebitimage.cpp rather than as RGB565. It
+//shows two colours, and keeping each of them in sixteen bits costs both flash and the work
+//of writing a colour per pixel. Every skin can be in the build here and picked in the
+//options, so which kind a picture is cannot be known at build time: skinImagesOneBit says
+#define ONEBITIMAGES SKINBUILT(SKINBLACKWHITE)
+
+//1 when the black & white skin is the only one in the build. Every picture is then one bit a pixel
+//and the paths that read RGB565 are dead: a build that is only ever going to draw one bit pictures
+//need not carry the index the run length encoded background is read through, which is a row table
+//the width of the screen
+#define ONEBITONLY (ONEBITIMAGES && (FORCESKIN == SKINBLACKWHITE))
+
 //image headers to build with: 1 = images (16x16 tiles), 2 = images2 (same images at half size, 8x8 tiles)
 //set by the device header (PlatformESPboy.h / PlatformSDL.h) or by the build
 #ifndef IMAGESET
@@ -104,34 +117,44 @@
 #define IDEmpty 5
 #define IDFloor 6
 
+//The pool of world parts, which is the largest single thing the game asks the heap for. A level
+//can hold one part per playfield tile, so a full grid takes any level that could be written. The
+//device header may ask for fewer, which a device with little ram has to: it can size itself from
+//LEVELPACKMAXPARTS, the busiest level of the packs it actually ships, which is checked below
+//where that is known
+#ifndef MAXWORLDPARTS
 #define MAXWORLDPARTS ((NrOfCols * NrOfRows)+2)
+#endif
 //only the parts that actually moved this frame get redrawn on top, that is the
 //active player plus whatever it is pushing
 #define MAXMOVEABLEWORLDPARTS 8
+//>>> written by tools/convert_levelpacks.py from assets/levelpacks, do not edit by hand
+//how many packs there are in all, which is what the saved unlocks are sized by
 #define MaxLevelPacks 19
 
-//LEVELPACKS: the level packs that are built in, an LP_ bit each (the size is what the pack takes
-//in flash). All of them unless the device header or the build picks fewer, a pack that is left
-//out takes no flash and does not show up in the game
-#define LP_696                     (1ul <<  0)    //696.sok                      69250 bytes
-#define LP_Cosmonotes              (1ul <<  1)    //Cosmonotes.sok                4603 bytes
-#define LP_Cosmopoly               (1ul <<  2)    //Cosmopoly.sok                 5117 bytes
-#define LP_Erim_Sever_Collection   (1ul <<  3)    //Erim Sever Collection.sok    33620 bytes
-#define LP_GRIGoRusha_2001         (1ul <<  4)    //GRIGoRusha 2001.sok          17356 bytes
-#define LP_GRIGoRusha_2002         (1ul <<  5)    //GRIGoRusha 2002.sok           7931 bytes
-#define LP_GRIGoRusha_Remodel_Club (1ul <<  6)    //GRIGoRusha Remodel Club.sok  37304 bytes
-#define LP_GRIGoRusha_Special      (1ul <<  7)    //GRIGoRusha Special.sok        7963 bytes
-#define LP_GRIGoRusha_Star         (1ul <<  8)    //GRIGoRusha Star.sok           6130 bytes
-#define LP_GRIGoRusha_Sun          (1ul <<  9)    //GRIGoRusha Sun.sok            2351 bytes
-#define LP_LOMA                    (1ul << 10)    //LOMA.sok                     13983 bytes
-#define LP_Microcosmos             (1ul << 11)    //Microcosmos.sok               8057 bytes
-#define LP_Minicosmos              (1ul << 12)    //Minicosmos.sok                7844 bytes
-#define LP_Myriocosmos             (1ul << 13)    //Myriocosmos.sok               3823 bytes
-#define LP_Nabokosmos              (1ul << 14)    //Nabokosmos.sok                8084 bytes
-#define LP_Picokosmos              (1ul << 15)    //Picokosmos.sok                4572 bytes
-#define LP_SokEvo                  (1ul << 16)    //SokEvo.sok                   13399 bytes
-#define LP_SokHard                 (1ul << 17)    //SokHard.sok                  30319 bytes
-#define LP_SokWhole                (1ul << 18)    //SokWhole.sok                 13246 bytes
+//LEVELPACKS: the level packs that are built in, an LP_ bit each. The size is what the pack
+//takes in flash, which is its text run length encoded, see build_header. All of them unless
+//the device header or the build picks fewer; a pack that is left out takes no flash and is
+//not offered in the game
+#define LP_696                     (1ul <<  0)    //696.sok                      59568 bytes
+#define LP_Cosmonotes              (1ul <<  1)    //Cosmonotes.sok                4216 bytes
+#define LP_Cosmopoly               (1ul <<  2)    //Cosmopoly.sok                 4776 bytes
+#define LP_Erim_Sever_Collection   (1ul <<  3)    //Erim Sever Collection.sok    29969 bytes
+#define LP_GRIGoRusha_2001         (1ul <<  4)    //GRIGoRusha 2001.sok          15778 bytes
+#define LP_GRIGoRusha_2002         (1ul <<  5)    //GRIGoRusha 2002.sok           7089 bytes
+#define LP_GRIGoRusha_Remodel_Club (1ul <<  6)    //GRIGoRusha Remodel Club.sok  33497 bytes
+#define LP_GRIGoRusha_Special      (1ul <<  7)    //GRIGoRusha Special.sok        7402 bytes
+#define LP_GRIGoRusha_Star         (1ul <<  8)    //GRIGoRusha Star.sok           5625 bytes
+#define LP_GRIGoRusha_Sun          (1ul <<  9)    //GRIGoRusha Sun.sok            2073 bytes
+#define LP_LOMA                    (1ul << 10)    //LOMA.sok                     12963 bytes
+#define LP_Microcosmos             (1ul << 11)    //Microcosmos.sok               7578 bytes
+#define LP_Minicosmos              (1ul << 12)    //Minicosmos.sok                7358 bytes
+#define LP_Myriocosmos             (1ul << 13)    //Myriocosmos.sok               3471 bytes
+#define LP_Nabokosmos              (1ul << 14)    //Nabokosmos.sok                7607 bytes
+#define LP_Picokosmos              (1ul << 15)    //Picokosmos.sok                4251 bytes
+#define LP_SokEvo                  (1ul << 16)    //SokEvo.sok                   12290 bytes
+#define LP_SokHard                 (1ul << 17)    //SokHard.sok                  24971 bytes
+#define LP_SokWhole                (1ul << 18)    //SokWhole.sok                 11550 bytes
 #define LP_ALL ((1ul << 19) - 1)
 #ifndef LEVELPACKS
 #define LEVELPACKS LP_ALL
@@ -139,6 +162,46 @@
 #if (LEVELPACKS & LP_ALL) == 0
 #error "LEVELPACKS has to leave at least one level pack in"
 #endif
+//how many of them this build takes, which is how many the game lists
+#define LEVELPACKCOUNT (((LEVELPACKS & LP_696) != 0) + ((LEVELPACKS & LP_Cosmonotes) != 0) + ((LEVELPACKS & LP_Cosmopoly) != 0) + ((LEVELPACKS & LP_Erim_Sever_Collection) != 0) + ((LEVELPACKS & LP_GRIGoRusha_2001) != 0) + ((LEVELPACKS & LP_GRIGoRusha_2002) != 0) + ((LEVELPACKS & LP_GRIGoRusha_Remodel_Club) != 0) + ((LEVELPACKS & LP_GRIGoRusha_Special) != 0) + ((LEVELPACKS & LP_GRIGoRusha_Star) != 0) + ((LEVELPACKS & LP_GRIGoRusha_Sun) != 0) + ((LEVELPACKS & LP_LOMA) != 0) + ((LEVELPACKS & LP_Microcosmos) != 0) + ((LEVELPACKS & LP_Minicosmos) != 0) + ((LEVELPACKS & LP_Myriocosmos) != 0) + ((LEVELPACKS & LP_Nabokosmos) != 0) + ((LEVELPACKS & LP_Picokosmos) != 0) + ((LEVELPACKS & LP_SokEvo) != 0) + ((LEVELPACKS & LP_SokHard) != 0) + ((LEVELPACKS & LP_SokWhole) != 0))
+
+//The busiest level each pack has. The pool of world parts is the largest thing the game
+//asks the heap for and no level fills the whole playfield, so a build wants no more slots
+//than the packs it holds can fill, see MAXWORLDPARTS in the device header
+#define LP_PARTS_696                       79
+#define LP_PARTS_Cosmonotes                60
+#define LP_PARTS_Cosmopoly                 59
+#define LP_PARTS_Erim_Sever_Collection    161
+#define LP_PARTS_GRIGoRusha_2001          192
+#define LP_PARTS_GRIGoRusha_2002          122
+#define LP_PARTS_GRIGoRusha_Remodel_Club  205
+#define LP_PARTS_GRIGoRusha_Special        80
+#define LP_PARTS_GRIGoRusha_Star           68
+#define LP_PARTS_GRIGoRusha_Sun            71
+#define LP_PARTS_LOMA                      59
+#define LP_PARTS_Microcosmos               63
+#define LP_PARTS_Minicosmos                49
+#define LP_PARTS_Myriocosmos               90
+#define LP_PARTS_Nabokosmos                53
+#define LP_PARTS_Picokosmos                60
+#define LP_PARTS_SokEvo                    60
+#define LP_PARTS_SokHard                  222
+#define LP_PARTS_SokWhole                  72
+
+//how many parts the busiest level of the packs this build holds has. A pack that is
+//left out counts for nothing, so the count follows what LEVELPACKS says
+//One comparison a pack. LP_PARTS_MAX is a function and not a macro on purpose: a macro
+//naming its first argument twice doubles the text at every step, which with nineteen
+//packs put the compiler out of memory. constexpr keeps it usable where a constant is
+//wanted, such as the static_assert below and the size of the pool
+static inline constexpr int LP_PARTS_MAX(int a, int b) { return (a > b) ? a : b; }
+#define LP_PARTS_OF(p) (((LEVELPACKS & LP_##p) != 0) ? LP_PARTS_##p : 0)
+#define LEVELPACKMAXPARTS LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(0, LP_PARTS_OF(696)), LP_PARTS_OF(Cosmonotes)), LP_PARTS_OF(Cosmopoly)), LP_PARTS_OF(Erim_Sever_Collection)), LP_PARTS_OF(GRIGoRusha_2001)), LP_PARTS_OF(GRIGoRusha_2002)), LP_PARTS_OF(GRIGoRusha_Remodel_Club)), LP_PARTS_OF(GRIGoRusha_Special)), LP_PARTS_OF(GRIGoRusha_Star)), LP_PARTS_OF(GRIGoRusha_Sun)), LP_PARTS_OF(LOMA)), LP_PARTS_OF(Microcosmos)), LP_PARTS_OF(Minicosmos)), LP_PARTS_OF(Myriocosmos)), LP_PARTS_OF(Nabokosmos)), LP_PARTS_OF(Picokosmos)), LP_PARTS_OF(SokEvo)), LP_PARTS_OF(SokHard)), LP_PARTS_OF(SokWhole))
+//<<<
+
+//The pool has to take the busiest level of the packs this build ships. A build that takes every
+//pack wants a full grid, which is what MAXWORLDPARTS is by default
+static_assert(MAXWORLDPARTS >= LEVELPACKMAXPARTS, "a level of a pack in this build would not fit the pool");
 #define InputDelay 16
 #define MaxLevelPackNameLength 50
 

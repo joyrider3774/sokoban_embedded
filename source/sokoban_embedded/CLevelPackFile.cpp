@@ -225,14 +225,82 @@ static bool CLevelPackFile_endLevel(CLevelPackFile* LPackFile, LevelMeta* levelM
 //level == LPLevelHeaderOnly : only read the set / author of the pack itself
 //level == LPLevelCountOnly  : read the whole pack to count the levels in it
 //level >= 1                 : read the whole pack but only keep that one level in memory
+//A pack is stored run length encoded, see tools/convert_levelpacks.py: a control byte with its
+//top bit set stands for (c & 0x7F) + 1 copies of the byte that follows it, and one without for
+//the (c + 1) bytes that follow. Level text is mostly runs of wall and floor, which takes about
+//45% off a pack.
+//The parser reads a pack from start to end, a byte at a time and never twice, so it is decoded
+//as it is read: nothing of it is held in ram, which is what a device with 20k of it needs
+typedef struct PackReader PackReader;
+struct PackReader
+{
+	const unsigned char* pos;   //the next control byte, or the next byte of a literal
+	const unsigned char* end;
+	uint8_t left;               //how many bytes the run or the literal still owes
+	unsigned char repeated;     //the byte a run repeats
+	bool inRun;
+};
+
+static void PackReaderInit(PackReader* reader, const unsigned char* text, uint32_t textLen)
+{
+	reader->pos = text;
+	reader->end = text + textLen;
+	reader->left = 0;
+	reader->repeated = 0;
+	reader->inRun = false;
+}
+
+//gives the next byte of the pack, false once there are none left
+static bool PackReaderNext(PackReader* reader, char* out)
+{
+	if(reader->left == 0)
+	{
+		if(reader->pos >= reader->end)
+			return false;
+		//PLATFORM_READ_BYTE is pgm_read_byte on some of the devices, which may look at what it
+		//is handed more than once, so the pointer is never stepped on inside it
+		unsigned char control = (unsigned char)PLATFORM_READ_BYTE(reader->pos);
+		reader->pos++;
+		if(control & 0x80)
+		{
+			reader->inRun = true;
+			reader->left = (uint8_t)((control & 0x7F) + 1);
+			//a run that says what it repeats but does not carry it is a truncated pack
+			if(reader->pos >= reader->end)
+				return false;
+			reader->repeated = (unsigned char)PLATFORM_READ_BYTE(reader->pos);
+			reader->pos++;
+		}
+		else
+		{
+			reader->inRun = false;
+			reader->left = (uint8_t)(control + 1);
+		}
+	}
+
+	reader->left--;
+	if(reader->inRun)
+	{
+		*out = (char)reader->repeated;
+		return true;
+	}
+	if(reader->pos >= reader->end)
+		return false;
+	*out = (char)PLATFORM_READ_BYTE(reader->pos);
+	reader->pos++;
+	return true;
+}
+
 bool CLevelPackFile_parseText(CLevelPackFile *LPackFile, const unsigned char* text, uint32_t textLen, uint8_t maxWidth, uint8_t maxHeight, int16_t level)
 {
 	char line[MAXLINELEN] = "";
 	char levelField[MAXLEVELFIELDLEN] = "";
 	char levelFieldValue[MAXLEVELFIELDDATALEN] = "";
 	uint8_t linepos;
-	const unsigned char* pchar = text;
-	const unsigned char* pend = text + textLen;
+	PackReader reader;
+	PackReaderInit(&reader, text, textLen);
+	//1 while the pack still has a byte to give
+	bool more = true;
 	char* pdoublepoint, *pset, *pauthor;
 	//rows of the level being parsed, see LevelMeta for why this is not a byte
 	uint16_t y = 0;
@@ -247,12 +315,15 @@ bool CLevelPackFile_parseText(CLevelPackFile *LPackFile, const unsigned char* te
 	LevelMeta* levelMeta = &levelMetaData;
 	memset(levelMeta, 0, sizeof(LevelMeta));
 	char c = '\0';
-	while(pchar < pend)
+	while(more)
 	{
 		linepos = 0;
-		while(pchar < pend)
+		//1 once this line has a byte in it, so that the end of the pack does not look like
+		//one last empty line and end a level that already ended
+		bool started = false;
+		while((more = PackReaderNext(&reader, &c)))
 		{
-			c = (char)PLATFORM_READ_BYTE(pchar);
+			started = true;
 			if((c == '\n') || (c == '\0'))
 				break;
 			if((c != '\r') && (linepos < MAXLINELEN-1))
@@ -264,17 +335,13 @@ bool CLevelPackFile_parseText(CLevelPackFile *LPackFile, const unsigned char* te
 				else
 					line[linepos++] = c;
             }
-            pchar++;
 		}
 
-		//step over the newline, a '\0' in the middle of the data still ends the pack
-		if(pchar < pend)
-		{
-			if(c == '\0')
-				pchar = pend;
-			else
-				pchar++;
-		}
+		if(!started)
+			break;
+		//a '\0' in the middle of the data still ends the pack
+		if(c == '\0')
+			more = false;
 
 		line[linepos] = '\0';
 

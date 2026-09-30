@@ -587,14 +587,30 @@ const uint8_t* CWorldPart_SpriteData(CWorldPart* WorldPart)
 		case IDWall:           base = IMGWall;      break;
 		default: return NULL;
 	}
+#if ONEBITIMAGES
+	//A one bit picture is packed and its rows are encoded, so a frame of a sheet cannot be
+	//reached by stepping the pointer. The sheet is given whole and the frame asked for on its
+	//own, see CWorldPart_SpriteFrame
+	if (skinImagesOneBit)
+		return base;
+#endif
 	return base + WorldPart->AnimPhase * TileWidth * TileHeight * sizeof(uint16_t);
+}
+
+//Which frame of its sheet the part shows. The frames are stacked down a sheet one tile wide, so
+//this is also the row the frame starts at, in tiles
+uint8_t CWorldPart_SpriteFrame(CWorldPart* WorldPart)
+{
+	return WorldPart->AnimPhase;
 }
 
 void CWorldPart_Draw(CWorldPart* WorldPart)
 {
 	CWorldPart_Event_BeforeDraw(WorldPart);
-	DrawImageTransparent(WorldPart->X - WorldParts->ViewPort->MinScreenX, WorldPart->Y - WorldParts->ViewPort->MinScreenY,
-	                     TileWidth, TileHeight, CWorldPart_SpriteData(WorldPart));
+	DrawSpriteFrame(WorldPart->X - WorldParts->ViewPort->MinScreenX,
+	                WorldPart->Y - WorldParts->ViewPort->MinScreenY,
+	                TileWidth, TileHeight, CWorldPart_SpriteData(WorldPart),
+	                CWorldPart_SpriteFrame(WorldPart));
 }
 
 

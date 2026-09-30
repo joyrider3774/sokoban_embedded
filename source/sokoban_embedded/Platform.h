@@ -19,8 +19,11 @@
 //PlatformDevice.h includes: how much buffer fits depends on the device. PlatformESPboy.h
 //describes the modes. A build can also set it itself
 
-//bytes of save storage the game uses, every save and load goes through one block this size
-#define PLATFORM_STORAGE_SIZE 1280
+//Bytes of save storage the game uses, every save and load goes through one block this size, and
+//several of the devices keep that block in ram. It was 1280 while the unlock record held the name
+//of every level pack; a pack is remembered by a sum of its name now, which took the two records
+//together from 1082 bytes to 92
+#define PLATFORM_STORAGE_SIZE 128
 
 // ===========================================================================
 // The device
@@ -48,6 +51,22 @@
 //this to whatever its toolchain wants, everywhere else it is nothing
 #ifndef PLATFORM_FAST_CODE
 #define PLATFORM_FAST_CODE
+#endif
+
+//The same, for the handful of loops that run once per pixel rather than once per call. It is kept
+//apart from PLATFORM_FAST_CODE because a device may have room for these and not for the whole of
+//the drawing: the CHGame has 20k of ram in all and moves only these into it
+#ifndef PLATFORM_HOT_CODE
+#define PLATFORM_HOT_CODE
+#endif
+
+//Temporary, and only the CHGame reads it: with -DCHGAME_TIMING=1 it says over that device's USB
+//serial where a frame's time goes, so the part worth working on is known rather than guessed, see
+//Platform_PresentFrame in PlatformCHGame.cpp. Build it with -DFPSLOCK=0 as well, or the frame lock
+//hides the answer by waiting out whatever is left of the frame. It is defaulted here rather than in
+//the device file because the counters are kept by the drawing, which every device compiles
+#ifndef CHGAME_TIMING
+#define CHGAME_TIMING 0
 #endif
 
 //1 when data in flash is plain memory that can be read through a pointer of its own type.
