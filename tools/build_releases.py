@@ -110,14 +110,14 @@ TARGETS = [
     #largest being 696.sok at 59568, and would have to be cut into parts first the way blips'
     #two big packs were. The bits are LP_ in Defines.h, written out as numbers here because
     #that is what the build hands over
-    ("CHGame", "_1", {"LEVELPACKS": (1 << 9) | (1 << 8)}),    #GRIGoRusha Sun and Star
-    ("CHGame", "_2", {"LEVELPACKS": (1 << 13) | (1 << 1)}),   #Myriocosmos and Cosmonotes
-    ("CHGame", "_3", {"LEVELPACKS": (1 << 15) | (1 << 2)}),   #Picokosmos and Cosmopoly
-    ("CHGame", "_4", {"LEVELPACKS": 1 << 5}),                 #GRIGoRusha 2002
-    ("CHGame", "_5", {"LEVELPACKS": 1 << 7}),                 #GRIGoRusha Special
-    ("CHGame", "_6", {"LEVELPACKS": 1 << 12}),                #Minicosmos
-    ("CHGame", "_7", {"LEVELPACKS": 1 << 11}),                #Microcosmos
-    ("CHGame", "_8", {"LEVELPACKS": 1 << 14}),                #Nabokosmos
+    ("CHGame", "_1", {"CHGAME_SAVE_VARIANT": 1, "LEVELPACKS": (1 << 9) | (1 << 8)}),    #GRIGoRusha Sun and Star
+    ("CHGame", "_2", {"CHGAME_SAVE_VARIANT": 2, "LEVELPACKS": (1 << 13) | (1 << 1)}),   #Myriocosmos and Cosmonotes
+    ("CHGame", "_3", {"CHGAME_SAVE_VARIANT": 3, "LEVELPACKS": (1 << 15) | (1 << 2)}),   #Picokosmos and Cosmopoly
+    ("CHGame", "_4", {"CHGAME_SAVE_VARIANT": 4, "LEVELPACKS": 1 << 5}),                 #GRIGoRusha 2002
+    ("CHGame", "_5", {"CHGAME_SAVE_VARIANT": 5, "LEVELPACKS": 1 << 7}),                 #GRIGoRusha Special
+    ("CHGame", "_6", {"CHGAME_SAVE_VARIANT": 6, "LEVELPACKS": 1 << 12}),                #Minicosmos
+    ("CHGame", "_7", {"CHGAME_SAVE_VARIANT": 7, "LEVELPACKS": 1 << 11}),                #Microcosmos
+    ("CHGame", "_8", {"CHGAME_SAVE_VARIANT": 8, "LEVELPACKS": 1 << 14}),                #Nabokosmos
     ("PyBadge", "", {}),
     ("PyGamer", "", {}),
     ("PicoSystem", "", {}),
@@ -217,7 +217,7 @@ DEVICES = {
         "uf2": (0x4000, 0x55114460),
     },
     "PicoSystem": {
-        "fqbn": "rp2040:rp2040:generic:flash=16777216_0,boot2=boot2_w25q080_2_padded_checksum,freq=133,usbstack=picosdk,opt=Small",
+        "fqbn": "rp2040:rp2040:generic:flash=16777216_0,boot2=boot2_w25q080_2_padded_checksum,freq=125,usbstack=picosdk,opt=Small",
         "outputs": ["uf2"],
     },
     "Explorer": {
