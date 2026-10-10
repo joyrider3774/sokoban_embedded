@@ -26,7 +26,9 @@ ROOT = os.path.join(HERE, "..")
 PACKS_DIR = os.path.join(ROOT, "assets", "levelpacks")
 OUTPUT = os.path.join(ROOT, "Source", "sokoban_embedded", "Levelpacks.h")
 DEFINES = os.path.join(ROOT, "Source", "sokoban_embedded", "Defines.h")
-#the region of Defines.h this tool owns, see build_switches()
+PACKFILE = os.path.join(ROOT, "Source", "sokoban_embedded", "CLevelPackFile.cpp")
+#the regions of Defines.h and CLevelPackFile.cpp this tool owns, see build_switches()
+#and build_packtable()
 BEGIN = "//>>> written by tools/convert_levelpacks.py from assets/levelpacks, do not edit by hand"
 END = "//<<<"
 BYTES_PER_LINE = 16
@@ -244,12 +246,50 @@ def build_switches(packs):
     return "\n".join(lines)
 
 
-def splice(text, block):
-    """Puts block between the markers, which is the part of Defines.h this tool writes."""
+def build_packtable(packs):
+    """The two lists CLevelPackFile.cpp keeps of the packs that are in flash: the static_assert
+    the line counter rests on, and the table the game reads the packs through.
+
+    Written from assets/levelpacks like everything else here. They were kept by hand, and a pack
+    that was split into parts left them naming arrays Levelpacks.h no longer had: the card builds
+    went on compiling, because theirs is the card index instead, while every flash build stopped
+    at "levelpack_696 was not declared in this scope"."""
+    arrays = [c_name(file_name) for file_name, _ in packs]
+    bits = [c_name(file_name)[len("levelpack_"):] for file_name, _ in packs]
+    lines = []
+    for i, name in enumerate(arrays):
+        head = "static_assert(" if i == 0 else "\t"
+        tail = " &&" if i < len(arrays) - 1 else \
+            ', "a level pack is too big for the uint16_t line counter");'
+        lines.append("%s(sizeof(%s) < 131072)%s" % (head, name, tail))
+    lines += [
+        "",
+        "//Every level pack that is built in, LEVELPACKS picks them. Only the packs named here end up",
+        "//in flash, the linker leaves the other arrays of Levelpacks.h out",
+        "typedef struct LevelPackEntry LevelPackEntry;",
+        "struct LevelPackEntry",
+        "{",
+        "\tconst char* filename;",
+        "\tconst unsigned char* text;",
+        "\tuint32_t size;",
+        "};",
+        "",
+        "static const LevelPackEntry builtInPacks[] = {",
+    ]
+    for (file_name, _), bit, array in zip(packs, bits, arrays):
+        lines.append("#if LEVELPACKS & LP_%s" % bit)
+        lines.append('\t{ "%s", %s, sizeof(%s) },' % (file_name, array, array))
+        lines.append("#endif")
+    lines.append("};")
+    return "\n".join(lines)
+
+
+def splice(text, block, path=None):
+    """Puts block between the markers, which is the part of that file this tool writes."""
     start = text.find(BEGIN)
     end = text.find(END, start + 1) if start >= 0 else -1
     if start < 0 or end < 0:
-        raise SystemExit("the markers are gone from %s, put them back" % DEFINES)
+        raise SystemExit("the markers are gone from %s, put them back" % (path or DEFINES))
     return text[:start] + BEGIN + "\n" + block + "\n" + text[end:]
 
 
@@ -320,7 +360,13 @@ def main():
     with open(DEFINES, "r", newline="") as f:
         defines_raw = f.read()
     defines_old = defines_raw.replace("\r\n", "\n")
-    defines_new = splice(defines_old, switches)
+    defines_new = splice(defines_old, switches, DEFINES)
+
+    packtable = build_packtable(packs)
+    with open(PACKFILE, "r", newline="") as f:
+        packfile_raw = f.read()
+    packfile_old = packfile_raw.replace("\r\n", "\n")
+    packfile_new = splice(packfile_old, packtable, PACKFILE)
 
     if args.verify:
         print("verifying %s against assets/levelpacks (%s)" % (os.path.relpath(args.output, ROOT), summary))
@@ -333,6 +379,14 @@ def main():
             for line in difflib.unified_diff(defines_old.split("\n"), defines_new.split("\n"),
                                              "current", "generated", lineterm="", n=1):
                 print("      " + line)
+        if packfile_new == packfile_old:
+            print("  the pack table in %s matches" % os.path.basename(PACKFILE))
+        else:
+            ok = False
+            print("  the pack table in %s differs:" % os.path.basename(PACKFILE))
+            for line in difflib.unified_diff(packfile_old.split("\n"), packfile_new.split("\n"),
+                                             "current", "generated", lineterm="", n=1):
+                print("      " + line)
         print("everything matches" if ok else "there are differences")
         return 0 if ok else 1
 
@@ -343,6 +397,9 @@ def main():
     with open(DEFINES, "w", newline="\r\n") as f:
         f.write(defines_new)
     print("wrote the LEVELPACKS switch into %s" % os.path.relpath(DEFINES, ROOT))
+    with open(PACKFILE, "w", newline="\r\n") as f:
+        f.write(packfile_new)
+    print("wrote the pack table into %s" % os.path.relpath(PACKFILE, ROOT))
     return 0
 
 

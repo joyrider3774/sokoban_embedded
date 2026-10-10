@@ -18,10 +18,16 @@
 //Only when the packs are in flash: a card build has none of these arrays and no table of
 //them either, the card's own index standing in for it
 #if !CARDLEVELS
-static_assert((sizeof(levelpack_696) < 131072) &&
+//>>> written by tools/convert_levelpacks.py from assets/levelpacks, do not edit by hand
+static_assert((sizeof(levelpack_696_1) < 131072) &&
+	(sizeof(levelpack_696_2) < 131072) &&
+	(sizeof(levelpack_696_3) < 131072) &&
+	(sizeof(levelpack_696_4) < 131072) &&
+	(sizeof(levelpack_696_5) < 131072) &&
 	(sizeof(levelpack_Cosmonotes) < 131072) &&
 	(sizeof(levelpack_Cosmopoly) < 131072) &&
-	(sizeof(levelpack_Erim_Sever_Collection) < 131072) &&
+	(sizeof(levelpack_Erim_Sever_Collection_1) < 131072) &&
+	(sizeof(levelpack_Erim_Sever_Collection_2) < 131072) &&
 	(sizeof(levelpack_GRIGoRusha_2001) < 131072) &&
 	(sizeof(levelpack_GRIGoRusha_2002) < 131072) &&
 	(sizeof(levelpack_GRIGoRusha_Remodel_Club) < 131072) &&
@@ -49,8 +55,20 @@ struct LevelPackEntry
 };
 
 static const LevelPackEntry builtInPacks[] = {
-#if LEVELPACKS & LP_696
-	{ "696.sok", levelpack_696, sizeof(levelpack_696) },
+#if LEVELPACKS & LP_696_1
+	{ "696_1.sok", levelpack_696_1, sizeof(levelpack_696_1) },
+#endif
+#if LEVELPACKS & LP_696_2
+	{ "696_2.sok", levelpack_696_2, sizeof(levelpack_696_2) },
+#endif
+#if LEVELPACKS & LP_696_3
+	{ "696_3.sok", levelpack_696_3, sizeof(levelpack_696_3) },
+#endif
+#if LEVELPACKS & LP_696_4
+	{ "696_4.sok", levelpack_696_4, sizeof(levelpack_696_4) },
+#endif
+#if LEVELPACKS & LP_696_5
+	{ "696_5.sok", levelpack_696_5, sizeof(levelpack_696_5) },
 #endif
 #if LEVELPACKS & LP_Cosmonotes
 	{ "Cosmonotes.sok", levelpack_Cosmonotes, sizeof(levelpack_Cosmonotes) },
@@ -58,8 +76,11 @@ static const LevelPackEntry builtInPacks[] = {
 #if LEVELPACKS & LP_Cosmopoly
 	{ "Cosmopoly.sok", levelpack_Cosmopoly, sizeof(levelpack_Cosmopoly) },
 #endif
-#if LEVELPACKS & LP_Erim_Sever_Collection
-	{ "Erim Sever Collection.sok", levelpack_Erim_Sever_Collection, sizeof(levelpack_Erim_Sever_Collection) },
+#if LEVELPACKS & LP_Erim_Sever_Collection_1
+	{ "Erim Sever Collection_1.sok", levelpack_Erim_Sever_Collection_1, sizeof(levelpack_Erim_Sever_Collection_1) },
+#endif
+#if LEVELPACKS & LP_Erim_Sever_Collection_2
+	{ "Erim Sever Collection_2.sok", levelpack_Erim_Sever_Collection_2, sizeof(levelpack_Erim_Sever_Collection_2) },
 #endif
 #if LEVELPACKS & LP_GRIGoRusha_2001
 	{ "GRIGoRusha 2001.sok", levelpack_GRIGoRusha_2001, sizeof(levelpack_GRIGoRusha_2001) },
@@ -107,6 +128,7 @@ static const LevelPackEntry builtInPacks[] = {
 	{ "SokWhole.sok", levelpack_SokWhole, sizeof(levelpack_SokWhole) },
 #endif
 };
+//<<<
 #endif
 
 #if CARDLEVELS

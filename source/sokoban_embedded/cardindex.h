@@ -15,7 +15,7 @@
 #define CARD_FILE_83 "SOKOBAN DAT"
 
 //every skin and picture name, hashed: a card made by another build has another stamp
-#define CARD_STAMP 0xE4737CABUL
+#define CARD_STAMP 0xDCC88FCFUL
 
 //the sections of the container, by the name its table holds. Levels will be another one
 #define CARD_SEC_IMAGES "IMGS"
@@ -54,7 +54,7 @@ enum CardImage : uint8_t
 //out of flash. 0 leaves everything about the levels as it was
 #define CARD_HAS_LEVELS 1
 
-#define CARD_LEVEL_COUNT 19
+#define CARD_LEVEL_COUNT 24
 
 //the packs, in the order the index holds them, by the name the game knows
-#define CARD_LEVEL_NAMES { "696.sok", "Cosmonotes.sok", "Cosmopoly.sok", "Erim Sever Collection.sok", "GRIGoRusha 2001.sok", "GRIGoRusha 2002.sok", "GRIGoRusha Remodel Club.sok", "GRIGoRusha Special.sok", "GRIGoRusha Star.sok", "GRIGoRusha Sun.sok", "LOMA.sok", "Microcosmos.sok", "Minicosmos.sok", "Myriocosmos.sok", "Nabokosmos.sok", "Picokosmos.sok", "SokEvo.sok", "SokHard.sok", "SokWhole.sok" }
+#define CARD_LEVEL_NAMES { "696_1.sok", "696_2.sok", "696_3.sok", "696_4.sok", "696_5.sok", "Cosmonotes.sok", "Cosmopoly.sok", "Erim Sever Collection_1.sok", "Erim Sever Collection_2.sok", "GRIGoRusha 2001.sok", "GRIGoRusha 2002.sok", "GRIGoRusha Remodel Club.sok", "GRIGoRusha Special.sok", "GRIGoRusha Star.sok", "GRIGoRusha Sun.sok", "LOMA.sok", "Microcosmos.sok", "Minicosmos.sok", "Myriocosmos.sok", "Nabokosmos.sok", "Picokosmos.sok", "SokEvo.sok", "SokHard.sok", "SokWhole.sok" }
