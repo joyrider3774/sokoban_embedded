@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 #include "Defines.h"
+//for CARDLEVELS: the packs are on the card in a card build, see CardLevels_Pack
+#include "cardimages.h"
 
 #define MAXLEVELS 1000
 #define MAXITEMCOUNT (NrOfCols*NrOfRows) + 2
@@ -78,6 +80,17 @@ CLevelPackFile* CLevelPackFile_Create();
 void CLevelPackFile_Destroy(CLevelPackFile* LevelPackFile);
 //a pack's text is longer than 65535 bytes (696.sok is 69250)
 bool CLevelPackFile_parseText(CLevelPackFile* LevelPackFile, const unsigned char* text, uint32_t textLen, uint8_t maxWidth, uint8_t maxHeight, int16_t level);
+#if CARDLEVELS
+//the same, for a pack that lies on the card: where its bytes start in the file and how many.
+//See CardLevels_Pack in cardimages.h
+bool CLevelPackFile_parseCard(CLevelPackFile* LevelPackFile, uint32_t at, uint32_t length, uint8_t maxWidth, uint8_t maxHeight, int16_t level);
+
+//How much of a pack is held while it is read. The parser asks for a byte at a time and walks
+//the pack once, so this only decides how often the card is asked
+#ifndef CARD_PACK_CHUNK
+#define CARD_PACK_CHUNK 64
+#endif
+#endif
 bool CLevelPackFile_loadFile(CLevelPackFile* LevelPackFile, char* filename, uint8_t maxWidth, uint8_t maxHeight, int16_t level);
 bool CLevelPackFile_loadLevel(CLevelPackFile* LevelPackFile, int16_t level);
 //the level packs LEVELPACKS builds in: how many there are and the file name of each

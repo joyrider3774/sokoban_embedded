@@ -15,10 +15,11 @@
 #define CARD_FILE_83 "SOKOBAN DAT"
 
 //every skin and picture name, hashed: a card made by another build has another stamp
-#define CARD_STAMP 0xC0DC7510UL
+#define CARD_STAMP 0xE4737CABUL
 
 //the sections of the container, by the name its table holds. Levels will be another one
 #define CARD_SEC_IMAGES "IMGS"
+#define CARD_SEC_LEVELS "LVLS"
 
 //1 when any picture is kept as one colour a row, see FMT_ROWS. The game builds the
 //code that draws one only then: a card without any is a game that need not carry it
@@ -48,3 +49,12 @@ enum CardImage : uint8_t
 	CARD_IMG_TITLESCREEN = 5,
 	CARD_IMG_WALL = 6,
 };
+
+//1 when the card holds the level packs too, so the game reads them from there and not
+//out of flash. 0 leaves everything about the levels as it was
+#define CARD_HAS_LEVELS 1
+
+#define CARD_LEVEL_COUNT 19
+
+//the packs, in the order the index holds them, by the name the game knows
+#define CARD_LEVEL_NAMES { "696.sok", "Cosmonotes.sok", "Cosmopoly.sok", "Erim Sever Collection.sok", "GRIGoRusha 2001.sok", "GRIGoRusha 2002.sok", "GRIGoRusha Remodel Club.sok", "GRIGoRusha Special.sok", "GRIGoRusha Star.sok", "GRIGoRusha Sun.sok", "LOMA.sok", "Microcosmos.sok", "Minicosmos.sok", "Myriocosmos.sok", "Nabokosmos.sok", "Picokosmos.sok", "SokEvo.sok", "SokHard.sok", "SokWhole.sok" }

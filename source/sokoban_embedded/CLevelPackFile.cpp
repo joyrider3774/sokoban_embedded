@@ -7,10 +7,17 @@
 #include "Common.h"
 #include "GameFuncs.h"
 #include "CLevelPackFile.h"
+//the levels read off the card, for a build with CARDLEVELS on
+#include "cardimages.h"
+#if !CARDLEVELS
 #include "Levelpacks.h"
+#endif
 
 //every line of a level is at least two bytes (a character and the newline), so the
 //line counter y (uint16_t) can not wrap while a pack stays below 131072 bytes
+//Only when the packs are in flash: a card build has none of these arrays and no table of
+//them either, the card's own index standing in for it
+#if !CARDLEVELS
 static_assert((sizeof(levelpack_696) < 131072) &&
 	(sizeof(levelpack_Cosmonotes) < 131072) &&
 	(sizeof(levelpack_Cosmopoly) < 131072) &&
@@ -100,15 +107,31 @@ static const LevelPackEntry builtInPacks[] = {
 	{ "SokWhole.sok", levelpack_SokWhole, sizeof(levelpack_SokWhole) },
 #endif
 };
+#endif
+
+#if CARDLEVELS
+//The packs are on the card and not in flash, so this is the card's own list of them: the names
+//are the ones the game already knows a pack by, in the order the card's index holds them, see
+//CARD_LEVEL_NAMES in cardindex.h
+static const char* const cardPackNames[CARD_LEVEL_COUNT] = CARD_LEVEL_NAMES;
+#endif
 
 uint8_t CLevelPackFile_BuiltInCount(void)
 {
+#if CARDLEVELS
+	return (uint8_t)CARD_LEVEL_COUNT;
+#else
 	return (uint8_t)(sizeof(builtInPacks) / sizeof(builtInPacks[0]));
+#endif
 }
 
 const char* CLevelPackFile_BuiltInName(uint8_t index)
 {
+#if CARDLEVELS
+	return (index < CARD_LEVEL_COUNT) ? cardPackNames[index] : "";
+#else
 	return (index < CLevelPackFile_BuiltInCount()) ? builtInPacks[index].filename : "";
+#endif
 }
 #include "Defines.h"
 
@@ -154,6 +177,20 @@ bool CLevelPackFile_loadFile(CLevelPackFile* LPackFile, char* filename, uint8_t 
 	//the packs carry no terminator and the linker puts them back to back in flash,
 	//so their length is the only thing that stops one pack running into the next.
 	//A name that is not built in (a pack a save remembers) gets the first pack
+#if CARDLEVELS
+	//the pack lies on the card; a name none of them answered to falls back on the first, as below
+	uint8_t which = 0;
+	for (uint8_t i = 0; i < CARD_LEVEL_COUNT; i++)
+		if (strcmp(filename, cardPackNames[i]) == 0)
+		{
+			which = i;
+			break;
+		}
+	uint32_t at = 0, size = 0;
+	if (!CardLevels_Pack(which, &at, &size))
+		return false;
+	Result = CLevelPackFile_parseCard(LPackFile, at, size, maxWidth, maxHeight, level);
+#else
 	const LevelPackEntry* pack = &builtInPacks[0];
 	for (uint8_t i = 0; i < CLevelPackFile_BuiltInCount(); i++)
 		if (strcmp(filename, builtInPacks[i].filename) == 0)
@@ -162,6 +199,7 @@ bool CLevelPackFile_loadFile(CLevelPackFile* LPackFile, char* filename, uint8_t 
 			break;
 		}
 	Result = CLevelPackFile_parseText(LPackFile, pack->text, pack->size, maxWidth, maxHeight, level);
+#endif
 
 
 	
@@ -236,6 +274,15 @@ struct PackReader
 {
 	const unsigned char* pos;   //the next control byte, or the next byte of a literal
 	const unsigned char* end;
+#if CARDLEVELS
+	//The same walk over a pack that lies on the card instead of in flash. A card is read by
+	//offset and not through a pointer, so the two ends of the pack are offsets and a chunk of
+	//it at a time is held here: the parser asks for one byte at a time and a read a byte would
+	//be a card command a byte
+	uint32_t at, cardEnd;
+	uint16_t have, used;
+	uint8_t buf[CARD_PACK_CHUNK];
+#endif
 	uint8_t left;               //how many bytes the run or the literal still owes
 	unsigned char repeated;     //the byte a run repeats
 	bool inRun;
@@ -245,31 +292,74 @@ static void PackReaderInit(PackReader* reader, const unsigned char* text, uint32
 {
 	reader->pos = text;
 	reader->end = text + textLen;
+#if CARDLEVELS
+	reader->at = 0;
+	reader->cardEnd = 0;
+	reader->have = 0;
+	reader->used = 0;
+#endif
 	reader->left = 0;
 	reader->repeated = 0;
 	reader->inRun = false;
 }
+
+#if CARDLEVELS
+//the same, for a pack that lies on the card: where it starts and how long it is
+static void PackReaderInitCard(PackReader* reader, uint32_t at, uint32_t length)
+{
+	PackReaderInit(reader, NULL, 0);
+	reader->at = at;
+	reader->cardEnd = at + length;
+}
+#endif
+
+//The next raw byte of the pack, before the run length encoding is undone, and false once the
+//pack has none left. This is the only place that knows where a pack is kept
+static bool PackRaw(PackReader* reader, unsigned char* out)
+{
+#if CARDLEVELS
+	if (reader->used >= reader->have)
+	{
+		if (reader->at >= reader->cardEnd)
+			return false;
+		uint32_t want = reader->cardEnd - reader->at;
+		if (want > CARD_PACK_CHUNK)
+			want = CARD_PACK_CHUNK;
+		if (!Platform_CardRead(reader->at, reader->buf, want))
+			return false;
+		reader->at += want;
+		reader->have = (uint16_t)want;
+		reader->used = 0;
+	}
+	*out = reader->buf[reader->used++];
+	return true;
+#else
+	if (reader->pos >= reader->end)
+		return false;
+	//PLATFORM_READ_BYTE is pgm_read_byte on some of the devices, which may look at what it
+	//is handed more than once, so the pointer is never stepped on inside it
+	*out = (unsigned char)PLATFORM_READ_BYTE(reader->pos);
+	reader->pos++;
+	return true;
+#endif
+}
+
 
 //gives the next byte of the pack, false once there are none left
 static bool PackReaderNext(PackReader* reader, char* out)
 {
 	if(reader->left == 0)
 	{
-		if(reader->pos >= reader->end)
+		unsigned char control;
+		if(!PackRaw(reader, &control))
 			return false;
-		//PLATFORM_READ_BYTE is pgm_read_byte on some of the devices, which may look at what it
-		//is handed more than once, so the pointer is never stepped on inside it
-		unsigned char control = (unsigned char)PLATFORM_READ_BYTE(reader->pos);
-		reader->pos++;
 		if(control & 0x80)
 		{
 			reader->inRun = true;
 			reader->left = (uint8_t)((control & 0x7F) + 1);
 			//a run that says what it repeats but does not carry it is a truncated pack
-			if(reader->pos >= reader->end)
+			if(!PackRaw(reader, &reader->repeated))
 				return false;
-			reader->repeated = (unsigned char)PLATFORM_READ_BYTE(reader->pos);
-			reader->pos++;
 		}
 		else
 		{
@@ -284,21 +374,40 @@ static bool PackReaderNext(PackReader* reader, char* out)
 		*out = (char)reader->repeated;
 		return true;
 	}
-	if(reader->pos >= reader->end)
+	unsigned char literal;
+	if(!PackRaw(reader, &literal))
 		return false;
-	*out = (char)PLATFORM_READ_BYTE(reader->pos);
-	reader->pos++;
+	*out = (char)literal;
 	return true;
 }
 
+//Everything below reads the pack through the reader above and nothing else, so a pack on the
+//card and a pack in flash are parsed by the same code: only where the reader was opened differs
+static bool ParseWith(CLevelPackFile *LPackFile, PackReader* readerIn, uint8_t maxWidth, uint8_t maxHeight, int16_t level);
+
+#if CARDLEVELS
+bool CLevelPackFile_parseCard(CLevelPackFile *LPackFile, uint32_t at, uint32_t length, uint8_t maxWidth, uint8_t maxHeight, int16_t level)
+{
+	PackReader reader;
+	PackReaderInitCard(&reader, at, length);
+	return ParseWith(LPackFile, &reader, maxWidth, maxHeight, level);
+}
+#endif
+
 bool CLevelPackFile_parseText(CLevelPackFile *LPackFile, const unsigned char* text, uint32_t textLen, uint8_t maxWidth, uint8_t maxHeight, int16_t level)
 {
+	PackReader reader;
+	PackReaderInit(&reader, text, textLen);
+	return ParseWith(LPackFile, &reader, maxWidth, maxHeight, level);
+}
+
+static bool ParseWith(CLevelPackFile *LPackFile, PackReader* readerIn, uint8_t maxWidth, uint8_t maxHeight, int16_t level)
+{
+	PackReader reader = *readerIn;
 	char line[MAXLINELEN] = "";
 	char levelField[MAXLEVELFIELDLEN] = "";
 	char levelFieldValue[MAXLEVELFIELDDATALEN] = "";
 	uint8_t linepos;
-	PackReader reader;
-	PackReaderInit(&reader, text, textLen);
 	//1 while the pack still has a byte to give
 	bool more = true;
 	char* pdoublepoint, *pset, *pauthor;
@@ -380,9 +489,16 @@ bool CLevelPackFile_parseText(CLevelPackFile *LPackFile, const unsigned char* te
 				CLevelPackFile_storeLevelField(levelMeta, levelField, levelFieldValue);
 			memset(levelFieldValue, 0, MAXLEVELFIELDDATALEN);
 			memset(levelField, 0, MAXLEVELFIELDLEN);
-			//the name can be up to a whole line long, a name that does not fit is cut
-			//short (it can not be one of the known fields then) instead of overflowing
-			snprintf(levelField, sizeof(levelField), "%.*s", (int16_t)(pdoublepoint - &line[0]), line);
+			//The name can be up to a whole line long, a name that does not fit is cut short
+			//(it can not be one of the known fields then) instead of overflowing. Copied
+			//rather than formatted with a precision, which not every printf understands: the
+			//cut down snprintf this device links does not, and the name came out as something
+			//no field answered to, so no level ever had a title or an author
+			size_t nameLen = (size_t)(pdoublepoint - &line[0]);
+			if (nameLen > sizeof(levelField) - 1)
+				nameLen = sizeof(levelField) - 1;
+			memcpy(levelField, line, nameLen);
+			levelField[nameLen] = '\0';
 			snprintf(levelFieldValue, sizeof(levelFieldValue), "%s", pdoublepoint + 1);
 			continue;
 		}

@@ -104,25 +104,12 @@ SKINS = 2
 TARGETS = [
     ("ESPboy", "", {}),
     ("GamebuinoMeta", "", {}),
-    #The device has about 9700 bytes for levels once the black & white skin is the only one
-    #built in. Eleven of the nineteen packs are small enough to ship and are spread over the
-    #binaries below; the other eight are each larger than a whole binary has room for, the
-    #largest being 696.sok at 59568, and would have to be cut into parts first the way blips'
-    #two big packs were. The bits are LP_ in Defines.h, written out as numbers here because
-    #that is what the build hands over
-    ("CHGame", "_1", {"CHGAME_SAVE_VARIANT": 1, "LEVELPACKS": (1 << 9) | (1 << 8)}),    #GRIGoRusha Sun and Star
-    ("CHGame", "_2", {"CHGAME_SAVE_VARIANT": 2, "LEVELPACKS": (1 << 13) | (1 << 1)}),   #Myriocosmos and Cosmonotes
-    #Picokosmos and Cosmopoly used to share a binary. Reading the art off the card costs flash
-    #of its own (the reader, and the drawing that goes with it) where it saves none here, this
-    #game's built in skin being one bit a pixel and small, so the pair no longer fits and they
-    #have a binary each
-    ("CHGame", "_3", {"CHGAME_SAVE_VARIANT": 3, "LEVELPACKS": 1 << 15}),                #Picokosmos
-    ("CHGame", "_9", {"CHGAME_SAVE_VARIANT": 9, "LEVELPACKS": 1 << 2}),                 #Cosmopoly
-    ("CHGame", "_4", {"CHGAME_SAVE_VARIANT": 4, "LEVELPACKS": 1 << 5}),                 #GRIGoRusha 2002
-    ("CHGame", "_5", {"CHGAME_SAVE_VARIANT": 5, "LEVELPACKS": 1 << 7}),                 #GRIGoRusha Special
-    ("CHGame", "_6", {"CHGAME_SAVE_VARIANT": 6, "LEVELPACKS": 1 << 12}),                #Minicosmos
-    ("CHGame", "_7", {"CHGAME_SAVE_VARIANT": 7, "LEVELPACKS": 1 << 11}),                #Microcosmos
-    ("CHGame", "_8", {"CHGAME_SAVE_VARIANT": 8, "LEVELPACKS": 1 << 14}),                #Nabokosmos
+    # The levels are read off the card as well now, so none of them are in the flash and one
+    # binary holds every pack: it was a binary per pack or two before, nine of them, and only
+    # eleven of the nineteen packs would fit at all. All nineteen are on the card. See
+    # CARD_HAS_LEVELS in cardindex.h and the LVLS section in tools/mkcard.py. LEVELPACKS still
+    # names them all, which is what sizes the pool of world parts for the busiest level there is
+    ("CHGame", "", {"LEVELPACKS": "LP_ALL"}),
     ("PyBadge", "", {}),
     ("PyGamer", "", {}),
     ("PicoSystem", "", {}),

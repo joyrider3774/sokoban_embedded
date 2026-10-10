@@ -48,11 +48,14 @@
 //How much RAM the art read off the card is kept in. An arena is static, so it comes out of the
 //same 18416 bytes the heap does, and this game's levels leave plenty of it: 4592 bytes of heap
 //are still free in a level with this.
-//2816 holds the whole of a skin - the box, floor, spot and wall sheets a board is made of come
-//to 640 bytes and the player is 2048 - so once a board has been drawn once nothing of it is
-//read off the card again. Only the title screen, which is 32768 bytes, stays off it
+//640 holds the box, floor, spot and wall sheets exactly, which is what a board is made of and
+//is drawn hundreds of times a frame. The player sheet is 2048 on its own and is read a row at a
+//time instead: there is one of him against a screen of tiles.
+//It was 2816, which held the player too, until the levels moved onto the card as well: all
+//nineteen packs are offered now and the pool of world parts is sized for the busiest level any
+//of them has, which wants that RAM more. 2816 leaves 52 bytes of heap, 640 leaves 1972
 #ifndef CARDARENA
-#define CARDARENA 2816
+#define CARDARENA 640
 #endif
 
 //The background is drawn as one colour rather than read off the card, see FLATBACKGROUND in
@@ -61,14 +64,6 @@
 #define FLATBACKGROUND 1
 #endif
 
-//No multi-block card reads here, see CARD_MULTIBLOCK in PlatformCHGame.cpp. They are worth
-//having - several blocks in one command is close to nine times faster a block than a command
-//each - but they cost about 884 bytes of flash and this game has not got them: its binaries
-//carry the level packs and sit at 98% of the 50944 bytes. Turn this back on with anything
-//that frees up the flash for it
-#ifndef CARD_MULTIBLOCK
-#define CARD_MULTIBLOCK 0
-#endif
 #endif
 
 #ifndef SCREENBUFFER
