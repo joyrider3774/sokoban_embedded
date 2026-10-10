@@ -32,6 +32,45 @@
 //for 0 (straight to the display) or a 1 bpp buffer, which is 2048 bytes. An 8 bpp buffer would be
 //16384 of the 20464 and leave nothing for the stack, the heap and the SD card, so it is not
 //offered. A build can still set this itself
+//There is a card slot on this board, and this device reads its art off it rather than carrying
+//it in flash: every skin in full RGB565 instead of the one reduced skin that fits. See CARDIMAGES
+//in defines.h and the card file tools/mkcard.py writes.
+//Set here and not only by the build, so the Arduino IDE builds the same thing; -DCARDIMAGES=0
+//builds the old flash version. It has to be settled here, before the switches below that ask it
+#ifndef CARDIMAGES
+#define CARDIMAGES 1
+#endif
+//Only such a build, because saying so is what pulls the reader in (CHSd, see the card section of
+//PlatformCHGame.cpp): a flash build needs no library installed
+#if CARDIMAGES
+#define PLATFORM_HAS_CARD 1
+
+//How much RAM the art read off the card is kept in. An arena is static, so it comes out of the
+//same 18416 bytes the heap does, and this game's levels leave plenty of it: 4592 bytes of heap
+//are still free in a level with this.
+//2816 holds the whole of a skin - the box, floor, spot and wall sheets a board is made of come
+//to 640 bytes and the player is 2048 - so once a board has been drawn once nothing of it is
+//read off the card again. Only the title screen, which is 32768 bytes, stays off it
+#ifndef CARDARENA
+#define CARDARENA 2816
+#endif
+
+//The background is drawn as one colour rather than read off the card, see FLATBACKGROUND in
+//defines.h. Both of this game's skins have a background whose rows are each one colour
+#ifndef FLATBACKGROUND
+#define FLATBACKGROUND 1
+#endif
+
+//No multi-block card reads here, see CARD_MULTIBLOCK in PlatformCHGame.cpp. They are worth
+//having - several blocks in one command is close to nine times faster a block than a command
+//each - but they cost about 884 bytes of flash and this game has not got them: its binaries
+//carry the level packs and sit at 98% of the 50944 bytes. Turn this back on with anything
+//that frees up the flash for it
+#ifndef CARD_MULTIBLOCK
+#define CARD_MULTIBLOCK 0
+#endif
+#endif
+
 #ifndef SCREENBUFFER
 #define SCREENBUFFER 0
 #endif
@@ -49,7 +88,9 @@
 //one bit a pixel rather than kept as RGB565, which comes to 689 bytes where the default skin's
 //come to 6132, and that is room for another level pack. A 1 bpp buffer picks that skin itself,
 //and a build can still ask for another one
-#if !defined(FORCESKIN) && (SCREENBUFFER != 1)
+//A card build names no skin: every one of them is on the card in full RGB565 and the game is
+//asked for one while it runs, see CardImages_UseSkin
+#if !defined(FORCESKIN) && (SCREENBUFFER != 1) && !CARDIMAGES
 #define FORCESKIN SKINBLACKWHITE
 #endif
 

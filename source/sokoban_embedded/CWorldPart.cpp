@@ -587,6 +587,11 @@ const uint8_t* CWorldPart_SpriteData(CWorldPart* WorldPart)
 		case IDWall:           base = IMGWall;      break;
 		default: return NULL;
 	}
+#if CARDIMAGES
+	//A picture on the card is reached by its number and not by an address, so there is nothing
+	//to step either: the sheet is given whole and the frame asked for on its own
+	return base;
+#endif
 #if ONEBITIMAGES
 	//A one bit picture is packed and its rows are encoded, so a frame of a sheet cannot be
 	//reached by stepping the pointer. The sheet is given whole and the frame asked for on its
