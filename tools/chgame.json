@@ -1,0 +1,12 @@
+{
+  "id": "sokoban",
+  "title": "SOKOBAN",
+  "author": "Willems Davy",
+  "version": "1.0",
+  "description": "A Sokoban engine",
+  "genre": "Puzzle",
+  "license": "MIT",
+  "url": "https://github.com/joyrider3774/sokoban_embedded",
+  "sourceUrl": "https://github.com/joyrider3774/sokoban_embedded",
+  "sdcard": "sdcard"
+}
